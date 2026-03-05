@@ -3,7 +3,7 @@ import { Button } from "@/components/ui/button";
 import {
   Zap, LayoutDashboard, FileText, Settings, LogOut, Facebook,
   CheckCircle2, XCircle, RefreshCw, Unplug, ChevronDown, MessageSquare,
-  Instagram, MoreHorizontal, Users, TrendingUp, Crown, Loader2, Lock, Plus, Trash2
+  Instagram, MoreHorizontal, Users, TrendingUp, Crown, Loader2, Lock, Plus, Trash2, Sun, Moon
 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
@@ -12,6 +12,8 @@ import type { Session } from "@supabase/supabase-js";
 import { useToast } from "@/hooks/use-toast";
 
 // ── Mock demo data (always shown so visitors can feel the dashboard) ──────────
+import { AutomationWizard } from "@/components/AutomationWizard";
+
 const mockPages = [
   { id: "1", name: "El Vision Store", category: "E-Commerce", isActive: true, hasInstagram: true, followers: "12.4K", messagesThisMonth: 1847 },
   { id: "2", name: "El Vision Blog", category: "Media/News", isActive: true, hasInstagram: false, followers: "5.2K", messagesThisMonth: 423 },
@@ -19,21 +21,24 @@ const mockPages = [
 ];
 
 const sidebarItems = [
-  { icon: LayoutDashboard, label: "Dashboard", active: true },
-  { icon: FileText, label: "Pages", active: false },
-  { icon: MessageSquare, label: "Automations", active: false },
-  { icon: Users, label: "Audience", active: false },
-  { icon: TrendingUp, label: "Analytics", active: false },
-  { icon: Settings, label: "Settings", active: false },
+  { id: "dashboard", icon: LayoutDashboard, label: "Dashboard" },
+  { id: "pages", icon: FileText, label: "Pages" },
+  { id: "automations", icon: MessageSquare, label: "Automations" },
+  { id: "audience", icon: Users, label: "Audience" },
+  { id: "analytics", icon: TrendingUp, label: "Analytics" },
+  { id: "settings", icon: Settings, label: "Settings" },
 ];
 
 interface AutochatTrigger {
   id: string;
   keyword: string;
+  comment_reply?: string;
   reply_message: string;
   is_active: boolean;
   button_url?: string;
   button_text?: string;
+  button_url_2?: string;
+  button_text_2?: string;
 }
 
 interface AutochatClient {
@@ -62,7 +67,32 @@ const Dashboard = () => {
   const [triggers, setTriggers] = useState<AutochatTrigger[]>([]);
   const [authLoading, setAuthLoading] = useState(true);
 
+  // UI State
+  const [activeTab, setActiveTab] = useState("dashboard");
+  const [isAddingTrigger, setIsAddingTrigger] = useState(false);
+  const [newTrigger, setNewTrigger] = useState<Partial<AutochatTrigger>>({
+    keyword: "",
+    comment_reply: "",
+    reply_message: "",
+    button_text: "",
+    button_url: "",
+    button_text_2: "",
+    button_url_2: ""
+  });
+  const [isSaving, setIsSaving] = useState(false);
+
+  // Theme State
+  const [theme, setTheme] = useState<"light" | "dark">("dark");
+
   useEffect(() => {
+    // Check saved theme or default to dark
+    const savedTheme = localStorage.getItem("autochat-theme") as "light" | "dark" | null;
+    if (savedTheme) {
+      setTheme(savedTheme);
+      document.documentElement.classList.toggle("dark", savedTheme === "dark");
+    } else {
+      document.documentElement.classList.add("dark");
+    }
     supabase.auth.getSession().then(async ({ data }) => {
       const s = data.session;
       setSession(s ?? null);
@@ -75,11 +105,7 @@ const Dashboard = () => {
             .single();
           if (cData) setClient(cData);
 
-          const { data: tData } = await supabase
-            .from("ig_triggers")
-            .select("*")
-            .order("created_at", { ascending: false });
-          if (tData) setTriggers(tData);
+          fetchTriggers(s.user.id);
         } catch {/* non-blocking */ }
       }
       setAuthLoading(false);
@@ -182,6 +208,63 @@ const Dashboard = () => {
     }
   };
 
+  const fetchTriggers = async (userId: string) => {
+    const { data: tData } = await supabase
+      .from("ig_triggers")
+      .select("*")
+      .eq("user_id", userId)
+      .order("created_at", { ascending: false });
+    if (tData) setTriggers(tData);
+  };
+
+  const handleSaveTrigger = async () => {
+    if (!session?.user) return requireLogin();
+    if (!newTrigger.keyword || !newTrigger.reply_message) {
+      toast({ title: "Validasi Gagal", description: "Keyword dan Isi Balasan DM wajib diisi.", variant: "destructive" });
+      return;
+    }
+
+    setIsSaving(true);
+    try {
+      const payload = {
+        user_id: session.user.id,
+        keyword: newTrigger.keyword,
+        comment_reply: newTrigger.comment_reply || null,
+        reply_message: newTrigger.reply_message,
+        button_text: newTrigger.button_text || null,
+        button_url: newTrigger.button_url || null,
+        button_text_2: newTrigger.button_text_2 || null,
+        button_url_2: newTrigger.button_url_2 || null,
+        is_active: true
+      };
+
+      const { error } = await supabase.from("ig_triggers").insert(payload);
+      if (error) throw error;
+
+      toast({ title: "Trigger Berhasil Disimpan", description: `Keyword "${newTrigger.keyword}" aktif.` });
+      setNewTrigger({ keyword: "", comment_reply: "", reply_message: "", button_text: "", button_url: "", button_text_2: "", button_url_2: "" });
+      setIsAddingTrigger(false);
+      fetchTriggers(session.user.id);
+
+    } catch (err: any) {
+      toast({ title: "Gagal menyimpan trigger", description: err.message, variant: "destructive" });
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  const handleDeleteTrigger = async (id: string) => {
+    if (!session?.user) return;
+    try {
+      const { error } = await supabase.from("ig_triggers").delete().eq("id", id).eq("user_id", session.user.id);
+      if (error) throw error;
+      toast({ title: "Trigger dihapus" });
+      setTriggers(prev => prev.filter(t => t.id !== id));
+    } catch (err: any) {
+      toast({ title: "Gagal menghapus", description: err.message, variant: "destructive" });
+    }
+  };
+
   const disconnectMeta = async () => {
     try {
       const { error } = await supabase
@@ -203,6 +286,13 @@ const Dashboard = () => {
     navigate("/auth");
   };
 
+  const toggleTheme = () => {
+    const newTheme = theme === "light" ? "dark" : "light";
+    setTheme(newTheme);
+    localStorage.setItem("autochat-theme", newTheme);
+    document.documentElement.classList.toggle("dark", newTheme === "dark");
+  };
+
   const isLoggedIn = !!session;
   const isPaid = client?.status === "paid";
   const isMetaConnected = !!client?.meta_access_token;
@@ -221,10 +311,10 @@ const Dashboard = () => {
   return (
     <div className="flex min-h-screen bg-background">
       {/* Sidebar */}
-      <aside className="fixed left-0 top-0 z-40 flex h-full w-64 flex-col border-r border-border bg-card">
+      <aside className="fixed left-0 top-0 z-40 flex h-full w-64 flex-col border-r border-border bg-card shadow-[4px_0_24px_-4px_rgba(0,0,0,0.05)] dark:shadow-none transition-colors duration-300">
         <div className="flex h-16 items-center gap-2 border-b border-border px-6">
-          <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary">
-            <Zap className="h-4 w-4 text-primary-foreground" />
+          <div className="flex h-8 w-8 items-center justify-center">
+            <img src="/autochat.png" alt="Autochat Logo" className="h-7 w-7 object-contain drop-shadow-md" />
           </div>
           <span className="font-display text-lg font-bold text-foreground">
             Autochat <span className="text-gradient">El Vision</span>
@@ -234,8 +324,9 @@ const Dashboard = () => {
         <nav className="flex-1 space-y-1 p-3">
           {sidebarItems.map((item) => (
             <button
-              key={item.label}
-              className={`flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors ${item.active
+              key={item.id}
+              onClick={() => setActiveTab(item.id)}
+              className={`flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors ${activeTab === item.id
                 ? "bg-primary/10 text-primary"
                 : "text-muted-foreground hover:bg-secondary hover:text-foreground"
                 }`}
@@ -246,11 +337,24 @@ const Dashboard = () => {
           ))}
         </nav>
 
-        <div className="border-t border-border p-3">
+        <div className="border-t border-border p-3 space-y-2">
+          <button
+            onClick={toggleTheme}
+            className="flex w-full items-center justify-between rounded-lg px-3 py-2.5 text-sm font-medium text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground"
+          >
+            <div className="flex items-center gap-3">
+              {theme === "light" ? <Moon className="h-4 w-4" /> : <Sun className="h-4 w-4" />}
+              {theme === "light" ? "Dark Mode" : "Light Mode"}
+            </div>
+          </button>
+
           {isLoggedIn ? (
             <button
               onClick={handleLogout}
-              className="flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground"
+              className={`flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors ${theme === "light"
+                ? "bg-red-600 text-white hover:bg-red-700 shadow-md"
+                : "text-muted-foreground hover:bg-secondary hover:text-foreground"
+                }`}
             >
               <LogOut className="h-4 w-4" />
               Keluar
@@ -293,7 +397,7 @@ const Dashboard = () => {
         <div className="p-8">
 
           {/* ── DEMO PANEL BANNER (shows when not logged in) ─────────────────── */}
-          {!isLoggedIn && !authLoading && (
+          {!isLoggedIn && !authLoading && activeTab === "dashboard" && (
             <motion.div
               initial={{ opacity: 0, y: -10 }}
               animate={{ opacity: 1, y: 0 }}
@@ -323,74 +427,78 @@ const Dashboard = () => {
           )}
 
           {/* ── Facebook Connection Card ──────────────────────────────────────── */}
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.5 }}
-            className="mb-8 rounded-xl border border-border bg-card p-6"
-          >
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-4">
-                <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-[hsl(214,89%,52%)]/10">
-                  <Facebook className="h-6 w-6 text-primary" />
+          {activeTab === "dashboard" && (
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.5 }}
+              className="mb-8 rounded-xl border border-border bg-card p-6"
+            >
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-4">
+                  <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-[hsl(214,89%,52%)]/10">
+                    <Facebook className="h-6 w-6 text-primary" />
+                  </div>
+                  <div>
+                    <h3 className="font-display font-semibold text-foreground">Facebook Connection</h3>
+                    <p className="text-sm text-muted-foreground">
+                      {isMetaConnected
+                        ? "Akun berhasil terhubung dengan Meta."
+                        : "Connect your Facebook Page to start automating messages."}
+                    </p>
+                  </div>
                 </div>
-                <div>
-                  <h3 className="font-display font-semibold text-foreground">Facebook Connection</h3>
-                  <p className="text-sm text-muted-foreground">
-                    {isMetaConnected
-                      ? "Akun berhasil terhubung dengan Meta."
-                      : "Connect your Facebook Page to start automating messages."}
-                  </p>
+                <div className="flex items-center gap-2">
+                  {isMetaConnected ? (
+                    <>
+                      <Button variant="outline" size="sm" className="gap-2" onClick={connectToMeta}>
+                        <RefreshCw className="h-3.5 w-3.5" />
+                        Refresh Token
+                      </Button>
+                      <Button variant="ghost" size="sm" className="gap-2 text-destructive hover:text-destructive" onClick={disconnectMeta}>
+                        <Unplug className="h-3.5 w-3.5" />
+                        Disconnect
+                      </Button>
+                    </>
+                  ) : (
+                    <Button variant="facebook" size="sm" className="gap-2" onClick={isLoggedIn ? connectToMeta : requireLogin}>
+                      <Facebook className="h-4 w-4" />
+                      Connect Facebook
+                    </Button>
+                  )}
                 </div>
               </div>
-              <div className="flex items-center gap-2">
-                {isMetaConnected ? (
-                  <>
-                    <Button variant="outline" size="sm" className="gap-2" onClick={connectToMeta}>
-                      <RefreshCw className="h-3.5 w-3.5" />
-                      Refresh Token
-                    </Button>
-                    <Button variant="ghost" size="sm" className="gap-2 text-destructive hover:text-destructive" onClick={disconnectMeta}>
-                      <Unplug className="h-3.5 w-3.5" />
-                      Disconnect
-                    </Button>
-                  </>
-                ) : (
-                  <Button variant="facebook" size="sm" className="gap-2" onClick={isLoggedIn ? connectToMeta : requireLogin}>
-                    <Facebook className="h-4 w-4" />
-                    Connect Facebook
-                  </Button>
-                )}
-              </div>
-            </div>
-          </motion.div>
+            </motion.div>
+          )}
 
           {/* ── Stats ─────────────────────────────────────────────────────────── */}
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.5, delay: 0.1 }}
-            className="mb-8 grid grid-cols-1 gap-4 md:grid-cols-4"
-          >
-            {[
-              { label: "Connected Pages", value: "2", icon: FileText, change: "+1 this week" },
-              { label: "Messages Sent", value: "2,270", icon: MessageSquare, change: "+340 today" },
-              { label: "Total Followers", value: "19.7K", icon: Users, change: "+2.1% growth" },
-              { label: "Response Rate", value: "94%", icon: TrendingUp, change: "+3% this month" },
-            ].map((stat) => (
-              <div
-                key={stat.label}
-                className="rounded-xl border border-border bg-card p-5 transition-colors hover:border-primary/20"
-              >
-                <div className="flex items-center justify-between">
-                  <span className="text-sm text-muted-foreground">{stat.label}</span>
-                  <stat.icon className="h-4 w-4 text-muted-foreground" />
+          {activeTab === "dashboard" && (
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.5, delay: 0.1 }}
+              className="mb-8 grid grid-cols-1 gap-4 md:grid-cols-4"
+            >
+              {[
+                { label: "Connected Pages", value: "2", icon: FileText, change: "+1 this week" },
+                { label: "Messages Sent", value: "2,270", icon: MessageSquare, change: "+340 today" },
+                { label: "Total Followers", value: "19.7K", icon: Users, change: "+2.1% growth" },
+                { label: "Response Rate", value: "94%", icon: TrendingUp, change: "+3% this month" },
+              ].map((stat) => (
+                <div
+                  key={stat.label}
+                  className="rounded-xl border border-border bg-card p-5 transition-colors hover:border-primary/20"
+                >
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm text-muted-foreground">{stat.label}</span>
+                    <stat.icon className="h-4 w-4 text-muted-foreground" />
+                  </div>
+                  <div className="mt-2 font-display text-2xl font-bold text-foreground">{stat.value}</div>
+                  <div className="mt-1 text-xs text-success">{stat.change}</div>
                 </div>
-                <div className="mt-2 font-display text-2xl font-bold text-foreground">{stat.value}</div>
-                <div className="mt-1 text-xs text-success">{stat.change}</div>
-              </div>
-            ))}
-          </motion.div>
+              ))}
+            </motion.div>
+          )}
 
           {/* ── Connected Pages List ──────────────────────────────────────────── */}
           <motion.div
@@ -479,83 +587,142 @@ const Dashboard = () => {
               ))}
             </div>
           </motion.div>
-          {/* ── Auto-Replies (Triggers) List ──────────────────────────────────── */}
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.5, delay: 0.3 }}
-            className="mb-8"
-          >
-            <div className="mb-4 flex items-center justify-between">
-              <div className="flex items-center gap-3">
-                <h2 className="font-display text-lg font-semibold text-foreground">Auto-Replies (Triggers)</h2>
-              </div>
-              <Button
-                size="sm"
-                className="gap-2"
-                onClick={isLoggedIn ? () => toast({ description: "Fitur tambah trigger segera hadir di UI ini!" }) : requireLogin}
-              >
-                <Plus className="h-4 w-4" />
-                Tambah Trigger
-              </Button>
-            </div>
 
-            <div className="rounded-xl border border-border bg-card overflow-hidden">
-              <div className="grid grid-cols-12 gap-4 border-b border-border bg-secondary/30 px-6 py-3 text-xs font-semibold text-muted-foreground">
-                <div className="col-span-3">KEYWORD (JIKA KOMEN INI)</div>
-                <div className="col-span-6">ISI BALASAN DM</div>
-                <div className="col-span-2">STATUS</div>
-                <div className="col-span-1 text-right">AKSI</div>
+          {/* ── Audience Tab (Empty State) ──────────────────────────────────── */}
+          {activeTab === "audience" && (
+            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="flex min-h-[400px] flex-col items-center justify-center rounded-xl border border-dashed border-border p-8 text-center bg-card">
+              <div className="flex h-16 w-16 items-center justify-center rounded-full bg-primary/10 mb-4">
+                <Users className="h-8 w-8 text-primary" />
+              </div>
+              <h3 className="font-display text-xl font-bold text-foreground">Fitur Belum Tersedia</h3>
+              <p className="mt-2 max-w-sm text-sm text-muted-foreground">
+                Daftar kontak audience yang pernah berinteraksi dengan Anda melalui DM akan muncul di sini pada update mendatang.
+              </p>
+            </motion.div>
+          )}
+
+          {/* ── Analytics Tab (Empty State) ──────────────────────────────────── */}
+          {activeTab === "analytics" && (
+            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="flex min-h-[400px] flex-col items-center justify-center rounded-xl border border-dashed border-border p-8 text-center bg-card">
+              <div className="flex h-16 w-16 items-center justify-center rounded-full bg-primary/10 mb-4">
+                <TrendingUp className="h-8 w-8 text-primary" />
+              </div>
+              <h3 className="font-display text-xl font-bold text-foreground">Fitur Belum Tersedia</h3>
+              <p className="mt-2 max-w-sm text-sm text-muted-foreground">
+                Laporan metrik interaksi, bounce rate, dan klik tombol akan dirilis segera.
+              </p>
+            </motion.div>
+          )}
+
+          {/* ── Auto-Replies (Triggers) / Automations Tab ─────────────────────── */}
+          {(activeTab === "dashboard" || activeTab === "automations") && (
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.5, delay: 0.3 }}
+              className="mb-8"
+            >
+              <div className="mb-4 flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <h2 className="font-display text-lg font-semibold text-foreground">Auto-Replies (Automations)</h2>
+                </div>
+                <Button
+                  size="sm"
+                  className="gap-2"
+                  onClick={isLoggedIn ? () => setIsAddingTrigger(!isAddingTrigger) : requireLogin}
+                  variant={isAddingTrigger ? "outline" : "hero"}
+                >
+                  {isAddingTrigger ? <XCircle className="h-4 w-4" /> : <Plus className="h-4 w-4" />}
+                  {isAddingTrigger ? "Batal" : "Tambah Trigger"}
+                </Button>
               </div>
 
-              <div className="divide-y divide-border">
-                {triggers.length > 0 ? (
-                  triggers.map((trigger) => (
-                    <div key={trigger.id} className="grid grid-cols-12 gap-4 items-center px-6 py-4 transition-colors hover:bg-muted/50">
-                      <div className="col-span-3">
-                        <span className="rounded-md bg-primary/10 px-2 py-1 text-sm font-medium text-primary">
-                          "{trigger.keyword}"
-                        </span>
-                      </div>
-                      <div className="col-span-6">
-                        <p className="line-clamp-2 text-sm text-foreground">{trigger.reply_message}</p>
-                        {trigger.button_url && (
-                          <div className="mt-1 flex items-center gap-1.5 text-xs text-muted-foreground">
-                            <span className="rounded bg-secondary px-1.5 py-0.5">Tombol</span>
-                            <span className="truncate max-w-[200px]">{trigger.button_text}</span>
-                          </div>
-                        )}
-                      </div>
-                      <div className="col-span-2">
-                        {trigger.is_active ? (
-                          <span className="flex w-max items-center gap-1.5 rounded-full bg-success/10 px-2.5 py-0.5 text-xs font-medium text-success">
-                            <CheckCircle2 className="h-3 w-3" />
-                            Active
+              {/* ADD TRIGGER WIZARD */}
+              {isAddingTrigger && session?.user && (
+                <AutomationWizard
+                  userId={session.user.id}
+                  onSuccess={() => {
+                    setIsAddingTrigger(false);
+                    fetchTriggers(session.user.id);
+                  }}
+                  onCancel={() => setIsAddingTrigger(false)}
+                />
+              )}
+
+              <div className="rounded-xl border border-border bg-card overflow-hidden">
+                <div className="grid grid-cols-12 gap-4 border-b border-border bg-secondary/30 px-6 py-3 text-xs font-semibold text-muted-foreground">
+                  <div className="col-span-3">KEYWORD</div>
+                  <div className="col-span-6">ISI BALASAN (DM & KOMEN)</div>
+                  <div className="col-span-2">STATUS</div>
+                  <div className="col-span-1 text-right">AKSI</div>
+                </div>
+
+                <div className="divide-y divide-border">
+                  {triggers.length > 0 ? (
+                    triggers.map((trigger) => (
+                      <div key={trigger.id} className="grid grid-cols-12 gap-4 items-center px-6 py-4 transition-colors hover:bg-muted/50">
+                        <div className="col-span-3 flex flex-col gap-1 items-start">
+                          <span className="rounded-md bg-primary/10 px-2 py-1 text-sm font-medium text-primary">
+                            "{trigger.keyword}"
                           </span>
-                        ) : (
-                          <span className="flex w-max items-center gap-1.5 rounded-full bg-muted px-2.5 py-0.5 text-xs font-medium text-muted-foreground">
-                            <XCircle className="h-3 w-3" />
-                            Inactive
-                          </span>
-                        )}
+                        </div>
+                        <div className="col-span-6 flex flex-col gap-1">
+                          {trigger.comment_reply && (
+                            <div className="text-xs text-muted-foreground flex items-center gap-1.5">
+                              <MessageSquare className="h-3 w-3" /> <span className="font-medium text-foreground/70">Komen:</span> {trigger.comment_reply}
+                            </div>
+                          )}
+                          <p className="line-clamp-2 text-sm text-foreground">
+                            {trigger.reply_message}
+                          </p>
+                          {trigger.button_url && (
+                            <div className="mt-1 flex flex-col gap-1">
+                              <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                                <span className="rounded bg-secondary px-1.5 py-0.5 whitespace-nowrap">Tombol 1: {trigger.button_text}</span>
+                                <span className="truncate max-w-[200px] text-primary">{trigger.button_url}</span>
+                              </div>
+                              {trigger.button_url_2 && (
+                                <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                                  <span className="rounded bg-secondary px-1.5 py-0.5 whitespace-nowrap">Tombol 2: {trigger.button_text_2}</span>
+                                  <span className="truncate max-w-[200px] text-primary">{trigger.button_url_2}</span>
+                                </div>
+                              )}
+                            </div>
+                          )}                        </div>
+                        <div className="col-span-2">
+                          {trigger.is_active ? (
+                            <span className="flex w-max items-center gap-1.5 rounded-full bg-success/10 px-2.5 py-0.5 text-xs font-medium text-success">
+                              <CheckCircle2 className="h-3 w-3" />
+                              Active
+                            </span>
+                          ) : (
+                            <span className="flex w-max items-center gap-1.5 rounded-full bg-muted px-2.5 py-0.5 text-xs font-medium text-muted-foreground">
+                              <XCircle className="h-3 w-3" />
+                              Inactive
+                            </span>
+                          )}
+                        </div>
+                        <div className="col-span-1 flex justify-end">
+                          <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive hover:bg-destructive/10 hover:text-destructive" onClick={() => handleDeleteTrigger(trigger.id)}>
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        </div>
                       </div>
-                      <div className="col-span-1 flex justify-end">
-                        <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive hover:bg-destructive/10 hover:text-destructive">
-                          <Trash2 className="h-4 w-4" />
-                        </Button>
-                      </div>
+                    ))
+                  ) : (
+                    <div className="px-6 py-12 text-center">
+                      <MessageSquare className="mx-auto mb-3 h-10 w-10 text-muted-foreground/30" />
+                      <p className="text-sm font-medium text-foreground">Belum ada Automation</p>
+                      <p className="text-xs text-muted-foreground mt-1 mb-4">Tambahkan keyword untuk membalas DM & Komen otomatis.</p>
+                      {isLoggedIn && (
+                        <Button size="sm" onClick={() => setIsAddingTrigger(true)}>Buat Automation Pertama</Button>
+                      )}
                     </div>
-                  ))
-                ) : (
-                  <div className="px-6 py-8 text-center">
-                    <MessageSquare className="mx-auto mb-3 h-8 w-8 text-muted-foreground/50" />
-                    <p className="text-sm font-medium text-foreground">Belum ada trigger</p>
-                    <p className="text-xs text-muted-foreground mt-1">Tambahkan keyword untuk membalas DM otomatis.</p>
-                  </div>
-                )}
+                  )}
+                </div>
               </div>
-            </div>
-          </motion.div>
+            </motion.div>
+          )}
 
           {/* ── Paid upgrade nudge (only for free logged-in users) ─────────────── */}
           {isLoggedIn && !isPaid && (

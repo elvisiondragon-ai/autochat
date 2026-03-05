@@ -2,4 +2,18 @@ import { createRoot } from "react-dom/client";
 import App from "./App.tsx";
 import "./index.css";
 
+const APP_VERSION = '2026.03.06.01'; // <-- Change this number to force an update
+
+if (localStorage.getItem('v_cache') !== APP_VERSION) {
+    // 1. Clear all Service Workers
+    navigator.serviceWorker?.getRegistrations().then(regs => regs.forEach(r => r.unregister()));
+
+    // 2. Clear all Browser Caches
+    caches.keys().then(names => names.forEach(name => caches.delete(name)));
+
+    // 3. Update version and Hard Reload
+    localStorage.setItem('v_cache', APP_VERSION);
+    window.location.reload();
+}
+
 createRoot(document.getElementById("root")!).render(<App />);

@@ -3,7 +3,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Zap, Eye, EyeOff, Loader2, Mail, Lock, User, Phone, ArrowLeft } from "lucide-react";
+import { Eye, EyeOff, Loader2, Mail, Lock, User, Phone, ArrowLeft } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/lib/supabase";
@@ -166,14 +166,13 @@ const AuthPage = () => {
             >
                 {/* Logo */}
                 <div className="mb-8 flex items-center justify-center gap-2">
-                    <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-primary">
-                        <Zap className="h-5 w-5 text-primary-foreground" />
+                    <div className="flex h-9 w-9 items-center justify-center">
+                        <img src="/autochat.png" alt="Autochat Logo" className="h-7 w-7 object-contain drop-shadow-md" />
                     </div>
                     <span className="font-display text-xl font-bold text-foreground">
                         Autochat <span className="text-gradient">El Vision</span>
                     </span>
                 </div>
-
                 {/* Card */}
                 <div className="rounded-2xl border border-border bg-card p-8 shadow-xl shadow-black/10">
 
@@ -417,8 +416,8 @@ const AuthPage = () => {
                 <p className="mt-4 text-center text-xs text-muted-foreground">
                     Powered by El Vision Ecosystem
                 </p>
-            </motion.div>
-        </div>
+            </motion.div >
+        </div >
     );
 };
 
