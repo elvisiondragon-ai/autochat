@@ -6,7 +6,7 @@ import { Label } from "@/components/ui/label";
 import { Zap, Eye, EyeOff, Loader2, Mail, Lock, User, Phone, ArrowLeft } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { useToast } from "@/hooks/use-toast";
-import { supabase, callAutochat } from "@/lib/supabase";
+import { supabase } from "@/lib/supabase";
 
 type AuthMode = "login" | "signup" | "forgot";
 
@@ -44,9 +44,15 @@ const AuthPage = () => {
             });
             if (error) throw error;
 
-            // Seed autochat_clients if first login
-            if (data.session) {
-                await callAutochat("get_client", {}, data.session).catch(() => null);
+            // Seed autochat_clients if first login from ecosystem
+            if (data.user) {
+                const { error: upsertErr } = await supabase.from("autochat_clients").upsert({
+                    user_id: data.user.id,
+                    email: data.user.email,
+                    display_name: data.user.email?.split("@")[0] || "User",
+                    status: "free"
+                }, { onConflict: "user_id", ignoreDuplicates: true });
+                if (upsertErr) console.warn("Failed to seed client on login:", upsertErr);
             }
 
             toast({ title: "Selamat datang! 🎉" });
@@ -69,34 +75,41 @@ const AuthPage = () => {
         try {
             const email = signupEmail.toLowerCase().trim();
 
-            const result = await callAutochat("signup", {
+            const { data, error } = await supabase.auth.signUp({
                 email,
                 password: signupPassword,
-                display_name: signupName.trim(),
-                phone_number: signupPhone.trim() || null,
+                options: {
+                    data: {
+                        display_name: signupName.trim(),
+                        phone_number: signupPhone.trim() || null
+                    }
+                }
             });
 
-            if (result.existing) {
-                // Existing user in ecosystem → auto login
-                toast({
-                    title: "Akun sudah ada di ecosystem, login otomatis",
-                    description: "Silahkan masuk dengan password Anda",
-                });
-                setLoginEmail(email);
-                setMode("login");
-                setLoading(false);
-                return;
+            if (error) {
+                if (error.message.toLowerCase().includes('already registered') || error.message.toLowerCase().includes('user already exists')) {
+                    toast({
+                        title: "Akun sudah ada di ecosystem, login otomatis",
+                        description: "Silahkan masuk dengan password Anda",
+                    });
+                    setLoginEmail(email);
+                    setMode("login");
+                    setLoading(false);
+                    return;
+                }
+                throw error;
             }
 
-            // New user created → sign them in
-            const { data, error } = await supabase.auth.signInWithPassword({
-                email,
-                password: signupPassword,
-            });
-            if (error) throw error;
-
-            if (data.session) {
-                await callAutochat("get_client", {}, data.session).catch(() => null);
+            if (data.user) {
+                // Seed autochat_clients directly
+                const { error: upsertErr } = await supabase.from("autochat_clients").upsert({
+                    user_id: data.user.id,
+                    email: email,
+                    display_name: signupName.trim() || email.split("@")[0],
+                    phone_number: signupPhone.trim() || null,
+                    status: "free"
+                }, { onConflict: "user_id" });
+                if (upsertErr) console.warn("Failed to seed client on signup:", upsertErr);
             }
 
             toast({ title: "Akun berhasil dibuat! 🚀", description: "Selamat datang di Autochat El Vision" });
@@ -118,7 +131,12 @@ const AuthPage = () => {
         setLoading(true);
         try {
             const email = forgotEmail.toLowerCase().trim();
-            await callAutochat("forgot_password", { email });
+            const { error } = await supabase.auth.resetPasswordForEmail(email, {
+                redirectTo: `${window.location.origin}/auth?mode=reset`
+            });
+
+            if (error) throw error;
+
             setForgotSent(true);
             toast({ title: "Email reset dikirim!", description: "Cek inbox / spam Anda" });
         } catch (err: any) {
@@ -225,8 +243,8 @@ const AuthPage = () => {
                                             key={tab}
                                             onClick={() => setMode(tab)}
                                             className={`flex-1 rounded-md py-2 text-sm font-medium transition-all ${mode === tab
-                                                    ? "bg-card text-foreground shadow-sm"
-                                                    : "text-muted-foreground hover:text-foreground"
+                                                ? "bg-card text-foreground shadow-sm"
+                                                : "text-muted-foreground hover:text-foreground"
                                                 }`}
                                         >
                                             {tab === "login" ? "Masuk" : "Daftar"}
