@@ -298,7 +298,7 @@ const Dashboard = () => {
 
   const fetchTriggers = async (userId: string) => {
     const { data: tData } = await supabase
-      .from("ig_triggers")
+      .from("autochat_triggers")
       .select("*")
       .eq("user_id", userId)
       .order("created_at", { ascending: false });
@@ -326,7 +326,7 @@ const Dashboard = () => {
         is_active: true
       };
 
-      const { error } = await supabase.from("ig_triggers").insert(payload);
+      const { error } = await supabase.from("autochat_triggers").insert(payload);
       if (error) throw error;
 
       toast({ title: "Trigger Berhasil Disimpan", description: `Keyword "${newTrigger.keyword}" aktif.` });
@@ -344,7 +344,7 @@ const Dashboard = () => {
   const handleDeleteTrigger = async (id: string) => {
     if (!session?.user) return;
     try {
-      const { error } = await supabase.from("ig_triggers").delete().eq("id", id).eq("user_id", session.user.id);
+      const { error } = await supabase.from("autochat_triggers").delete().eq("id", id).eq("user_id", session.user.id);
       if (error) throw error;
       toast({ title: "Trigger dihapus" });
       setTriggers(prev => prev.filter(t => t.id !== id));

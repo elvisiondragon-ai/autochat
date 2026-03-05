@@ -25,7 +25,7 @@ interface IgMedia {
 }
 
 // ── Live Phone Mockup Preview ─────────────────────────────────────────────────
-const PhonePreview = ({ step, keyword, commentReply, dmReply, triggerSource, sequenceType, directUrl, selectedPost, buttonText, buttonUrl }: {
+const PhonePreview = ({ step, keyword, commentReply, dmReply, triggerSource, sequenceType, directUrl, selectedPost, buttonText, buttonUrl, useBasaBasi, basaBasiChat, basaBasiBtnA, basaBasiBtnB }: {
     step: number;
     keyword: string;
     commentReply: string;
@@ -36,10 +36,15 @@ const PhonePreview = ({ step, keyword, commentReply, dmReply, triggerSource, seq
     selectedPost?: IgMedia | null;
     buttonText: string;
     buttonUrl: string;
+    useBasaBasi: boolean;
+    basaBasiChat: string;
+    basaBasiBtnA: string;
+    basaBasiBtnB: string;
 }) => {
     const isDM = triggerSource === "chat_ig_fb" || step >= 5;
-    const showDMPreview = step >= 6 && dmReply.trim() !== "";
-    const showFollowCheck = step === 5 && sequenceType === "follow_check";
+    const showDMPreview = step >= 7 && dmReply.trim() !== "";
+    const showBasaBasiPreview = step === 5 && useBasaBasi;
+    const showFollowCheck = step === 6 && sequenceType === "follow_check";
     const showCommentPreview = step === 4 && commentReply.trim() !== "";
     const showKeyword = step >= 3 && keyword.trim() !== "";
     const postThumbnail = selectedPost?.thumbnail_url || selectedPost?.media_url;
@@ -139,8 +144,26 @@ const PhonePreview = ({ step, keyword, commentReply, dmReply, triggerSource, seq
                                         </div>
                                     </motion.div>
                                 )}
-                                {/* Follow check preview at step 5 */}
-                                {step === 5 && (
+                                {/* Basa Basi preview at step 5 */}
+                                {showBasaBasiPreview && (
+                                    <motion.div initial={{ opacity: 0, x: -20 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: 0.15 }} className="flex items-end gap-1">
+                                        <div className="h-5 w-5 rounded-full bg-gradient-to-tr from-[#f9ce34] via-[#ee2a7b] to-[#6228d7] shrink-0 flex items-center justify-center text-[6px] font-bold text-white">🤖</div>
+                                        <div className="max-w-[140px]">
+                                            <div className="rounded-2xl rounded-bl-sm bg-[#2c2c2e] overflow-hidden">
+                                                <div className="px-3 py-1.5">
+                                                    <span className="text-white text-[9px]">{basaBasiChat || "Apa kamu mau linknya?"}</span>
+                                                </div>
+                                            </div>
+                                            <div className="flex flex-col gap-1 mt-1">
+                                                <div className="rounded-xl bg-[#0095f6] px-2 py-1 text-center text-[8px] text-white font-semibold">{basaBasiBtnA || "Mau"}</div>
+                                                <div className="rounded-xl bg-[#2c2c2e] border border-[#adadad]/30 px-2 py-1 text-center text-[8px] text-[#adadad]">{basaBasiBtnB || "Gak mau"}</div>
+                                            </div>
+                                        </div>
+                                    </motion.div>
+                                )}
+
+                                {/* Follow check preview at step 6 */}
+                                {step === 6 && (
                                     <motion.div initial={{ opacity: 0, x: -20 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: 0.15 }} className="flex items-end gap-1">
                                         <div className="h-5 w-5 rounded-full bg-gradient-to-tr from-[#f9ce34] via-[#ee2a7b] to-[#6228d7] shrink-0 flex items-center justify-center text-[6px] font-bold text-white">🤖</div>
                                         <div className="max-w-[140px]">
@@ -177,8 +200,9 @@ const PhonePreview = ({ step, keyword, commentReply, dmReply, triggerSource, seq
                     {step === 2 && "Pilih target postingan"}
                     {step === 3 && (keyword ? `Keyword: "${keyword}"` : "Ketik keyword...")}
                     {step === 4 && "Balasan di komentar"}
-                    {step === 5 && "Cek Follow Dulu?"}
-                    {step === 6 && "Preview DM & Link"}
+                    {step === 5 && "Basa Basi"}
+                    {step === 6 && "Cek Follow Dulu?"}
+                    {step === 7 && "Preview DM & Link"}
                 </p>
                 <p className="text-[10px] text-muted-foreground/60 mt-0.5">Live Preview</p>
             </div>
@@ -206,6 +230,13 @@ export const AutomationWizard: React.FC<AutomationWizardProps> = ({ userId, meta
     const [directUrl, setDirectUrl] = useState<string>("");
     const [buttonText, setButtonText] = useState<string>("");
     const [buttonUrl, setButtonUrl] = useState<string>("");
+
+    // Basa Basi State
+    const [useBasaBasi, setUseBasaBasi] = useState<boolean>(false);
+    const [basaBasiChat, setBasaBasiChat] = useState<string>("Halo kak! Boleh aku kirim linknya sekarang?");
+    const [basaBasiBtnA, setBasaBasiBtnA] = useState<string>("Boleh");
+    const [basaBasiBtnB, setBasaBasiBtnB] = useState<string>("Nanti saja");
+    const [basaBasiLoop, setBasaBasiLoop] = useState<string>("Oke kak, kalau udah mau bilang aja ya!");
 
     // IG Posts State
     const [igPosts, setIgPosts] = useState<IgMedia[]>([]);
@@ -274,12 +305,17 @@ export const AutomationWizard: React.FC<AutomationWizardProps> = ({ userId, meta
             if (!keyword.trim()) return toast({ description: "Keyword tidak boleh kosong", variant: "destructive" });
             if (triggerSource !== "komentar_ig_fb") { setStep(5); return; }
         }
-        if (step === 6) {
+        if (step === 5 && useBasaBasi) {
+            if (!basaBasiChat.trim() || !basaBasiBtnA.trim() || !basaBasiBtnB.trim() || !basaBasiLoop.trim()) {
+                return toast({ description: "Lengkapi semua form Basa Basi", variant: "destructive" });
+            }
+        }
+        if (step === 7) {
             if (!dmReply.trim()) return toast({ description: "Pesan DM wajib diisi", variant: "destructive" });
             if (!buttonText.trim()) return toast({ description: "Nama Tombol wajib diisi", variant: "destructive" });
             if (!buttonUrl.trim()) return toast({ description: "URL Link wajib diisi", variant: "destructive" });
         }
-        if (step < 6) setStep(step + 1);
+        if (step < 7) setStep(step + 1);
     };
 
     const handleBack = () => {
@@ -323,7 +359,13 @@ export const AutomationWizard: React.FC<AutomationWizardProps> = ({ userId, meta
                 button_url: btn1Url,
                 button_text_2: btn2Text,
                 button_url_2: btn2Url,
-                is_active: true
+                is_active: true,
+                basa_basi: useBasaBasi ? {
+                    chat: basaBasiChat,
+                    btn_a: basaBasiBtnA,
+                    btn_b: basaBasiBtnB,
+                    loop_reply: basaBasiLoop
+                } : null
             };
 
             const { error } = await supabase.from("autochat_triggers").insert(payload);
@@ -352,7 +394,7 @@ export const AutomationWizard: React.FC<AutomationWizardProps> = ({ userId, meta
         );
     };
 
-    const allSteps = ["Trigger", "Post", "Keyword", "Komen", "Follow?", "DM & Link"];
+    const allSteps = ["Trigger", "Post", "Keyword", "Komen", "Basa Basi", "Follow?", "DM & Link"];
 
     return (
         <div className="mb-8 rounded-2xl border border-border bg-card shadow-sm overflow-hidden">
@@ -553,9 +595,78 @@ export const AutomationWizard: React.FC<AutomationWizardProps> = ({ userId, meta
                             </motion.div>
                         )}
 
-                        {/* STEP 5: FOLLOW CHECK */}
+                        {/* STEP 5: BASA BASI OPTION */}
                         {step === 5 && (
                             <motion.div key="step5" initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -20 }} className="space-y-5">
+                                <h4 className="text-lg font-medium text-foreground mb-1">Tombol Basa Basi (Ice Breaker) 🧊</h4>
+                                <p className="text-sm text-muted-foreground mb-4">Minta persetujuan user sebelum memberi link. Interaksi ini bagus untuk algoritma Instagram!</p>
+                                <div className="rounded-xl border border-border bg-secondary/10 p-4 space-y-3">
+                                    <OptionCard
+                                        label="A. ✅ Pakai Tombol Basa Basi"
+                                        value="yes_basa_basi"
+                                        current={useBasaBasi ? "yes_basa_basi" : ""}
+                                        onChange={() => setUseBasaBasi(true)}
+                                    />
+                                    <OptionCard
+                                        label="B. ❌ Tidak Pakai (Langsung Next)"
+                                        value="no_basa_basi"
+                                        current={!useBasaBasi ? "no_basa_basi" : ""}
+                                        onChange={() => setUseBasaBasi(false)}
+                                    />
+
+                                    {useBasaBasi && (
+                                        <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: "auto" }} className="space-y-4 pt-2">
+                                            <div>
+                                                <label className="text-xs font-medium text-muted-foreground mb-1 block">Pesan Bot (Pertanyaan) <span className="text-destructive">*</span></label>
+                                                <input
+                                                    type="text"
+                                                    placeholder="Contoh: Halo kak! Boleh aku kirim linknya sekarang?"
+                                                    className="w-full rounded-xl border border-input bg-background px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary/50"
+                                                    value={basaBasiChat}
+                                                    onChange={e => setBasaBasiChat(e.target.value)}
+                                                />
+                                            </div>
+                                            <div className="grid grid-cols-2 gap-3">
+                                                <div>
+                                                    <label className="text-xs font-medium text-muted-foreground mb-1 block">Tombol A (Setuju) <span className="text-destructive">*</span></label>
+                                                    <input
+                                                        type="text"
+                                                        placeholder="Mau"
+                                                        className="w-full rounded-xl border border-input bg-background px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary/50"
+                                                        value={basaBasiBtnA}
+                                                        onChange={e => setBasaBasiBtnA(e.target.value)}
+                                                    />
+                                                </div>
+                                                <div>
+                                                    <label className="text-xs font-medium text-muted-foreground mb-1 block">Tombol B (Tolak) <span className="text-destructive">*</span></label>
+                                                    <input
+                                                        type="text"
+                                                        placeholder="Gak Mau"
+                                                        className="w-full rounded-xl border border-input bg-background px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary/50"
+                                                        value={basaBasiBtnB}
+                                                        onChange={e => setBasaBasiBtnB(e.target.value)}
+                                                    />
+                                                </div>
+                                            </div>
+                                            <div>
+                                                <label className="text-xs font-medium text-muted-foreground mb-1 block">Balasan Jika Tolak (Looping) <span className="text-destructive">*</span></label>
+                                                <input
+                                                    type="text"
+                                                    placeholder="Oke kak, kalau udah mau bilang aja ya!"
+                                                    className="w-full rounded-xl border border-input bg-background px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary/50"
+                                                    value={basaBasiLoop}
+                                                    onChange={e => setBasaBasiLoop(e.target.value)}
+                                                />
+                                            </div>
+                                        </motion.div>
+                                    )}
+                                </div>
+                            </motion.div>
+                        )}
+
+                        {/* STEP 6: FOLLOW CHECK */}
+                        {step === 6 && (
+                            <motion.div key="step6" initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -20 }} className="space-y-5">
                                 <h4 className="text-lg font-medium text-foreground mb-1">Cek Follow Dulu? 🔒</h4>
                                 <p className="text-sm text-muted-foreground mb-4">Apakah kamu ingin memastikan user sudah Follow akunmu sebelum mendapatkan link?</p>
                                 <div className="rounded-xl border border-border bg-secondary/10 p-4 space-y-3">
@@ -595,9 +706,9 @@ export const AutomationWizard: React.FC<AutomationWizardProps> = ({ userId, meta
                             </motion.div>
                         )}
 
-                        {/* STEP 6: DM REPLY + BUTTON (mandatory) */}
-                        {step === 6 && (
-                            <motion.div key="step6" initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -20 }} className="space-y-5">
+                        {/* STEP 7: DM REPLY + BUTTON (mandatory) */}
+                        {step === 7 && (
+                            <motion.div key="step7" initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -20 }} className="space-y-5">
                                 {/* Part A: Pesan DM */}
                                 <div>
                                     <h4 className="text-lg font-medium text-foreground mb-1">Pesan DM otomatis</h4>
@@ -658,6 +769,10 @@ export const AutomationWizard: React.FC<AutomationWizardProps> = ({ userId, meta
                             selectedPost={selectedPost}
                             buttonText={buttonText}
                             buttonUrl={buttonUrl}
+                            useBasaBasi={useBasaBasi}
+                            basaBasiChat={basaBasiChat}
+                            basaBasiBtnA={basaBasiBtnA}
+                            basaBasiBtnB={basaBasiBtnB}
                         />
                     </div>
                 </div>

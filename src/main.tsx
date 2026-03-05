@@ -4,7 +4,7 @@ import "./index.css";
 
 // ==========================================
 // CACHE BUSTING VERSION - CHANGE THIS TO FORCE RELOAD!
-const APP_VERSION = "2026.03.06.20";
+const APP_VERSION = "2026.03.06.21";
 // ==========================================<-- Changed to force an update for Delete Account & Real Metrics
 
 if (localStorage.getItem('v_cache') !== APP_VERSION) {
