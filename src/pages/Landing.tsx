@@ -57,11 +57,11 @@ const Landing = () => {
             <a href="#docs" className="text-sm text-muted-foreground transition-colors hover:text-foreground">Docs</a>
           </div>
           <div className="flex items-center gap-3">
-            <Button variant="ghost" size="sm" onClick={() => navigate("/dashboard")}>
-              Log in
+            <Button variant="ghost" size="sm" onClick={() => navigate("/auth")}>
+              Masuk
             </Button>
-            <Button variant="hero" size="sm" onClick={() => navigate("/dashboard")}>
-              Get Started
+            <Button variant="hero" size="sm" onClick={() => navigate("/auth")}>
+              Mulai Gratis
             </Button>
           </div>
         </div>
@@ -117,7 +117,7 @@ const Landing = () => {
               variant="facebook"
               size="lg"
               className="h-13 gap-3 px-8 text-base"
-              onClick={() => navigate("/dashboard")}
+              onClick={() => navigate("/auth")}
             >
               <Facebook className="h-5 w-5" />
               Connect with Facebook
@@ -126,8 +126,9 @@ const Landing = () => {
               variant="outline"
               size="lg"
               className="h-13 gap-2 px-8 text-base"
+              onClick={() => navigate("/dashboard")}
             >
-              See how it works
+              See Demo Panel
               <ArrowRight className="h-4 w-4" />
             </Button>
           </motion.div>
@@ -229,10 +230,10 @@ const Landing = () => {
               variant="facebook"
               size="lg"
               className="mt-8 h-13 gap-3 px-10 text-base"
-              onClick={() => navigate("/dashboard")}
+              onClick={() => navigate("/auth")}
             >
               <Facebook className="h-5 w-5" />
-              Start Free Trial
+              Mulai Gratis
             </Button>
           </motion.div>
         </div>
@@ -248,6 +249,26 @@ const Landing = () => {
             <span className="font-display text-sm font-semibold text-foreground">
               Autochat El Vision
             </span>
+          </div>
+          <div className="flex items-center gap-6">
+            <button
+              onClick={() => navigate("/terms")}
+              className="text-sm text-muted-foreground hover:text-foreground transition-colors"
+            >
+              Terms of Service
+            </button>
+            <button
+              onClick={() => navigate("/privacy")}
+              className="text-sm text-muted-foreground hover:text-foreground transition-colors"
+            >
+              Privacy Policy
+            </button>
+            <button
+              onClick={() => navigate("/data-deletion")}
+              className="text-sm text-muted-foreground hover:text-foreground transition-colors"
+            >
+              Data Deletion
+            </button>
           </div>
           <p className="text-sm text-muted-foreground">
             © 2026 Autochat El Vision. All rights reserved.

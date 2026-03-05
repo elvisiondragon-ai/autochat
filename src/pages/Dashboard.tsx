@@ -1,24 +1,18 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 import {
   Zap, LayoutDashboard, FileText, Settings, LogOut, Facebook,
   CheckCircle2, XCircle, RefreshCw, Unplug, ChevronDown, MessageSquare,
-  Instagram, MoreHorizontal, Users, TrendingUp
+  Instagram, MoreHorizontal, Users, TrendingUp, Crown, Loader2, Lock
 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
+import { supabase, callAutochat } from "@/lib/supabase";
+import type { Session } from "@supabase/supabase-js";
+import { useToast } from "@/hooks/use-toast";
 
-interface MockPage {
-  id: string;
-  name: string;
-  category: string;
-  isActive: boolean;
-  hasInstagram: boolean;
-  followers: string;
-  messagesThisMonth: number;
-}
-
-const mockPages: MockPage[] = [
+// ── Mock demo data (always shown so visitors can feel the dashboard) ──────────
+const mockPages = [
   { id: "1", name: "El Vision Store", category: "E-Commerce", isActive: true, hasInstagram: true, followers: "12.4K", messagesThisMonth: 1847 },
   { id: "2", name: "El Vision Blog", category: "Media/News", isActive: true, hasInstagram: false, followers: "5.2K", messagesThisMonth: 423 },
   { id: "3", name: "El Vision Support", category: "Business", isActive: false, hasInstagram: true, followers: "2.1K", messagesThisMonth: 0 },
@@ -33,9 +27,59 @@ const sidebarItems = [
   { icon: Settings, label: "Settings", active: false },
 ];
 
+interface AutochatClient {
+  display_name?: string;
+  email?: string;
+  status?: "free" | "paid";
+  trigger_list?: unknown[];
+}
+
 const Dashboard = () => {
   const navigate = useNavigate();
-  const [connected] = useState(true);
+  const { toast } = useToast();
+
+  const [session, setSession] = useState<Session | null | undefined>(undefined);
+  const [client, setClient] = useState<AutochatClient | null>(null);
+  const [authLoading, setAuthLoading] = useState(true);
+
+  useEffect(() => {
+    supabase.auth.getSession().then(async ({ data }) => {
+      const s = data.session;
+      setSession(s ?? null);
+      if (s) {
+        try {
+          const res = await callAutochat("get_client", {}, s);
+          setClient(res.client ?? null);
+        } catch {/* non-blocking */ }
+      }
+      setAuthLoading(false);
+    });
+
+    const { data: listener } = supabase.auth.onAuthStateChange((_e, s) => {
+      setSession(s ?? null);
+    });
+    return () => listener.subscription.unsubscribe();
+  }, []);
+
+  const handleLogout = async () => {
+    await supabase.auth.signOut();
+    toast({ title: "Berhasil keluar" });
+    navigate("/auth");
+  };
+
+  const isLoggedIn = !!session;
+  const isPaid = client?.status === "paid";
+  const displayName = client?.display_name ?? session?.user?.email?.split("@")[0] ?? "Demo User";
+  const initials = displayName.slice(0, 2).toUpperCase();
+
+  // Called on protected action buttons
+  const requireLogin = () => {
+    toast({
+      title: "Login diperlukan",
+      description: "Silahkan masuk untuk menggunakan fitur ini.",
+    });
+    navigate("/auth");
+  };
 
   return (
     <div className="flex min-h-screen bg-background">
@@ -46,7 +90,7 @@ const Dashboard = () => {
             <Zap className="h-4 w-4 text-primary-foreground" />
           </div>
           <span className="font-display text-lg font-bold text-foreground">
-            El Vision
+            Autochat <span className="text-gradient">El Vision</span>
           </span>
         </div>
 
@@ -54,11 +98,10 @@ const Dashboard = () => {
           {sidebarItems.map((item) => (
             <button
               key={item.label}
-              className={`flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors ${
-                item.active
+              className={`flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors ${item.active
                   ? "bg-primary/10 text-primary"
                   : "text-muted-foreground hover:bg-secondary hover:text-foreground"
-              }`}
+                }`}
             >
               <item.icon className="h-4 w-4" />
               {item.label}
@@ -67,13 +110,20 @@ const Dashboard = () => {
         </nav>
 
         <div className="border-t border-border p-3">
-          <button
-            onClick={() => navigate("/")}
-            className="flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground"
-          >
-            <LogOut className="h-4 w-4" />
-            Log out
-          </button>
+          {isLoggedIn ? (
+            <button
+              onClick={handleLogout}
+              className="flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground"
+            >
+              <LogOut className="h-4 w-4" />
+              Keluar
+            </button>
+          ) : (
+            <Button className="w-full gap-2" size="sm" onClick={() => navigate("/auth")}>
+              <Lock className="h-4 w-4" />
+              Masuk / Daftar
+            </Button>
+          )}
         </div>
       </aside>
 
@@ -83,27 +133,59 @@ const Dashboard = () => {
         <header className="sticky top-0 z-30 flex h-16 items-center justify-between border-b border-border bg-background/80 px-8 backdrop-blur-xl">
           <h1 className="font-display text-xl font-semibold text-foreground">Dashboard</h1>
           <div className="flex items-center gap-3">
+            {/* Connection status */}
             <div className="flex items-center gap-2 rounded-full border border-border bg-card px-4 py-1.5 text-sm">
-              {connected ? (
+              {isLoggedIn ? (
                 <>
                   <span className="h-2 w-2 rounded-full bg-success" />
                   <span className="text-foreground">Connected</span>
                 </>
               ) : (
                 <>
-                  <span className="h-2 w-2 rounded-full bg-destructive" />
-                  <span className="text-foreground">Disconnected</span>
+                  <span className="h-2 w-2 rounded-full bg-muted-foreground" />
+                  <span className="text-muted-foreground">Demo Mode</span>
                 </>
               )}
             </div>
             <div className="flex h-8 w-8 items-center justify-center rounded-full bg-secondary text-sm font-semibold text-foreground">
-              U
+              {authLoading ? <Loader2 className="h-3 w-3 animate-spin" /> : initials.slice(0, 1)}
             </div>
           </div>
         </header>
 
         <div className="p-8">
-          {/* Connection Card */}
+
+          {/* ── DEMO PANEL BANNER (shows when not logged in) ─────────────────── */}
+          {!isLoggedIn && !authLoading && (
+            <motion.div
+              initial={{ opacity: 0, y: -10 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.4 }}
+              className="mb-8 flex flex-col items-start justify-between gap-4 rounded-xl border border-primary/30 bg-primary/5 px-6 py-5 sm:flex-row sm:items-center"
+            >
+              <div className="flex items-center gap-3">
+                <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary/10">
+                  <Lock className="h-5 w-5 text-primary" />
+                </div>
+                <div>
+                  <p className="font-display font-semibold text-foreground">Demo Panel</p>
+                  <p className="text-sm text-muted-foreground">
+                    Ini tampilan demo. Login untuk menggunakan fitur sesungguhnya.
+                  </p>
+                </div>
+              </div>
+              <div className="flex gap-2 shrink-0">
+                <Button size="sm" variant="outline" onClick={() => navigate("/auth")}>
+                  Masuk
+                </Button>
+                <Button size="sm" onClick={() => navigate("/auth")}>
+                  Daftar Gratis
+                </Button>
+              </div>
+            </motion.div>
+          )}
+
+          {/* ── Facebook Connection Card ──────────────────────────────────────── */}
           <motion.div
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
@@ -118,14 +200,14 @@ const Dashboard = () => {
                 <div>
                   <h3 className="font-display font-semibold text-foreground">Facebook Connection</h3>
                   <p className="text-sm text-muted-foreground">
-                    {connected
+                    {isLoggedIn
                       ? "Token expires in 47 days · Last refreshed 3 days ago"
-                      : "Not connected. Click to authenticate with Facebook."}
+                      : "Connect your Facebook Page to start automating messages."}
                   </p>
                 </div>
               </div>
               <div className="flex items-center gap-2">
-                {connected ? (
+                {isLoggedIn ? (
                   <>
                     <Button variant="outline" size="sm" className="gap-2">
                       <RefreshCw className="h-3.5 w-3.5" />
@@ -137,7 +219,7 @@ const Dashboard = () => {
                     </Button>
                   </>
                 ) : (
-                  <Button variant="facebook" size="sm" className="gap-2">
+                  <Button variant="facebook" size="sm" className="gap-2" onClick={requireLogin}>
                     <Facebook className="h-4 w-4" />
                     Connect Facebook
                   </Button>
@@ -146,7 +228,7 @@ const Dashboard = () => {
             </div>
           </motion.div>
 
-          {/* Stats */}
+          {/* ── Stats ─────────────────────────────────────────────────────────── */}
           <motion.div
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
@@ -173,15 +255,27 @@ const Dashboard = () => {
             ))}
           </motion.div>
 
-          {/* Pages List */}
+          {/* ── Connected Pages List ──────────────────────────────────────────── */}
           <motion.div
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.5, delay: 0.2 }}
           >
             <div className="mb-4 flex items-center justify-between">
-              <h2 className="font-display text-lg font-semibold text-foreground">Connected Pages</h2>
-              <Button variant="outline" size="sm" className="gap-2">
+              <div className="flex items-center gap-3">
+                <h2 className="font-display text-lg font-semibold text-foreground">Connected Pages</h2>
+                {!isLoggedIn && (
+                  <span className="rounded-full border border-border bg-secondary px-2.5 py-0.5 text-xs text-muted-foreground">
+                    Demo
+                  </span>
+                )}
+              </div>
+              <Button
+                variant="outline"
+                size="sm"
+                className="gap-2"
+                onClick={isLoggedIn ? undefined : requireLogin}
+              >
                 <Facebook className="h-3.5 w-3.5" />
                 Add Page
                 <ChevronDown className="h-3 w-3" />
@@ -234,7 +328,12 @@ const Dashboard = () => {
                           Inactive
                         </span>
                       )}
-                      <Button variant="ghost" size="icon" className="h-8 w-8">
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-8 w-8"
+                        onClick={isLoggedIn ? undefined : requireLogin}
+                      >
                         <MoreHorizontal className="h-4 w-4" />
                       </Button>
                     </div>
@@ -243,6 +342,27 @@ const Dashboard = () => {
               ))}
             </div>
           </motion.div>
+
+          {/* ── Paid upgrade nudge (only for free logged-in users) ─────────────── */}
+          {isLoggedIn && !isPaid && (
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.5, delay: 0.4 }}
+              className="mt-8 flex items-center justify-between rounded-xl border border-amber-500/20 bg-amber-500/5 px-6 py-4"
+            >
+              <div className="flex items-center gap-3">
+                <Crown className="h-5 w-5 text-amber-500" />
+                <p className="text-sm text-foreground">
+                  Upgrade ke <strong>Paid</strong> untuk unlock unlimited pages & automations.
+                </p>
+              </div>
+              <Button size="sm" variant="outline" className="border-amber-500/30 text-amber-500 hover:bg-amber-500/10">
+                Upgrade
+              </Button>
+            </motion.div>
+          )}
+
         </div>
       </main>
     </div>
