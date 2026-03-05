@@ -784,7 +784,7 @@ export const AutomationWizard: React.FC<AutomationWizardProps> = ({ userId, meta
                     {step === 1 ? "Batal" : <><ArrowLeft className="h-4 w-4 mr-2" /> Kembali</>}
                 </Button>
 
-                {step < 6 ? (
+                {step < 7 ? (
                     <Button onClick={handleNext} className="min-w-[120px] shadow-lg shadow-primary/20">
                         Lanjut <ArrowRight className="h-4 w-4 ml-2" />
                     </Button>
