@@ -1,0 +1,11 @@
+column_name,data_type,is_nullable,column_default
+id,uuid,NO,uuid_generate_v4()
+user_id,uuid,YES,null
+ig_username,text,NO,null
+follow_status,text,YES,'unknown'::text
+interaction_type,text,NO,null
+auto_chat_status,text,YES,'pending'::text
+interaction_text,text,YES,null
+trigger_id,uuid,YES,null
+created_at,timestamp with time zone,YES,now()
+updated_at,timestamp with time zone,YES,now()

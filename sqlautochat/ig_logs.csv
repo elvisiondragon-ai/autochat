@@ -1,0 +1,15 @@
+column_name,data_type,is_nullable,column_default
+id,uuid,NO,gen_random_uuid()
+keyword,text,NO,null
+reply_message,text,NO,null
+is_active,boolean,YES,true
+created_at,timestamp with time zone,YES,now()
+button_url,text,YES,null
+button_text,text,YES,null
+button_url_2,text,YES,null
+button_text_2,text,YES,null
+user_id,uuid,YES,null
+comment_reply,text,YES,null
+target_post,text,YES,null
+trigger_source,text,YES,null
+sequence_type,text,YES,null

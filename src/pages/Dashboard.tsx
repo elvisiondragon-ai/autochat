@@ -30,6 +30,15 @@ const sidebarItems = [
   { id: "settings", icon: Settings, label: "Settings" },
 ];
 
+// Mobile bottom tabs (5 items, matching DemoPanel)
+const bottomTabs = [
+  { id: "dashboard", icon: LayoutDashboard, label: "Home" },
+  { id: "automations", icon: MessageSquare, label: "Bot" },
+  { id: "analytics", icon: TrendingUp, label: "Analitik" },
+  { id: "audience", icon: Users, label: "Audience" },
+  { id: "settings", icon: Settings, label: "Profil" },
+];
+
 interface AutochatTrigger {
   id: string;
   keyword: string;
@@ -50,6 +59,7 @@ interface AutochatClient {
   meta_access_token?: string | null;
   meta_page_id?: string | null;
   meta_instagram_id?: string | null;
+  ig_profile_pic_url?: string | null;
 }
 
 // Ensure FB SDK is typed on window
@@ -206,20 +216,58 @@ const Dashboard = () => {
           const saveToken = async () => {
             try {
               const accessToken = response.authResponse.accessToken;
-              console.log("[AutoChat] Saving accessToken to supabase...");
+              console.log("[AutoChat] Fetching IG Account from Facebook Pages...");
+
+              // Fetch user's pages and check for connected Instagram account
+              const pbRes = await fetch(`https://graph.facebook.com/v22.0/me/accounts?fields=id,name,instagram_business_account&access_token=${accessToken}`);
+              const pbData = await pbRes.json();
+
+              let metaPageId = null;
+              let metaInstagramId = null;
+
+              if (pbData.data && pbData.data.length > 0) {
+                // Find first page with an associated IG account
+                const pageWithIg = pbData.data.find((p: any) => p.instagram_business_account?.id);
+                if (pageWithIg) {
+                  metaPageId = pageWithIg.id;
+                  metaInstagramId = pageWithIg.instagram_business_account.id;
+                  console.log(`[AutoChat] Found IG Account: ${metaInstagramId} on Page: ${metaPageId}`);
+                } else {
+                  console.warn("[AutoChat] No Instagram Business Account found on any connected Facebook Pages.");
+                  toast({
+                    title: "Instagram Tidak Ditemukan",
+                    description: "Pastikan akun Instagram Anda diset ke 'Profesional' dan terhubung ke Halaman Facebook Anda.",
+                    variant: "destructive"
+                  });
+                }
+              }
+
+              console.log("[AutoChat] Saving credentials to supabase...");
               const { error } = await supabase
                 .from("autochat_clients")
-                .update({ meta_access_token: accessToken })
+                .update({
+                  meta_access_token: accessToken,
+                  meta_page_id: metaPageId,
+                  meta_instagram_id: metaInstagramId
+                })
                 .eq("user_id", session?.user.id);
 
               if (error) throw error;
 
-              console.log("[AutoChat] Token saved successfully in DB");
-              setClient(prev => prev ? { ...prev, meta_access_token: accessToken } : null);
-              toast({ title: "Sukses tersambung ke Facebook", description: "Meta Token berhasil disimpan." });
+              console.log("[AutoChat] Credentials saved successfully in DB");
+              setClient(prev => prev ? {
+                ...prev,
+                meta_access_token: accessToken,
+                meta_page_id: metaPageId,
+                meta_instagram_id: metaInstagramId
+              } : null);
+
+              if (metaInstagramId) {
+                toast({ title: "Sukses tersambung ke Meta!", description: "Instagram & Facebook berhasil dihubungkan." });
+              }
             } catch (err: any) {
-              console.error("[AutoChat] Token save error:", err);
-              toast({ title: "Gagal menyimpan token", description: err.message, variant: "destructive" });
+              console.error("[AutoChat] Connection save error:", err);
+              toast({ title: "Gagal menyimpan koneksi Meta", description: err.message, variant: "destructive" });
             }
           };
           saveToken();
@@ -230,7 +278,7 @@ const Dashboard = () => {
         }
       }, {
         // Required scopes for complete Instagram & FB publishing and analytics
-        scope: 'pages_messaging,pages_show_list,pages_manage_metadata,pages_read_engagement,pages_manage_posts,read_insights,instagram_basic,instagram_manage_messages,instagram_manage_comments,instagram_content_publish',
+        scope: 'business_management,pages_messaging,pages_show_list,pages_manage_metadata,pages_read_engagement,pages_manage_posts,read_insights,instagram_basic,instagram_manage_messages,instagram_manage_comments,instagram_content_publish',
         return_scopes: true
       });
     } catch (err) {
@@ -383,6 +431,7 @@ const Dashboard = () => {
   const isMetaConnected = !!client?.meta_access_token;
   const displayName = client?.display_name ?? session?.user?.email?.split("@")[0] ?? "Demo User";
   const initials = displayName.slice(0, 2).toUpperCase();
+  const igProfilePic = client?.ig_profile_pic_url ?? null;
 
   // Called on protected action buttons
   const requireLogin = () => {
@@ -394,9 +443,9 @@ const Dashboard = () => {
   };
 
   return (
-    <div className="flex min-h-screen bg-background">
-      {/* Sidebar */}
-      <aside className="fixed left-0 top-0 z-40 flex h-full w-64 flex-col border-r border-border bg-card shadow-[4px_0_24px_-4px_rgba(0,0,0,0.05)] dark:shadow-none transition-colors duration-300">
+    <div className="flex h-screen flex-col overflow-hidden md:flex-row bg-background">
+      {/* Sidebar (Desktop Only) */}
+      <aside className="hidden md:flex fixed left-0 top-0 z-40 h-full w-64 flex-col border-r border-border bg-card shadow-[4px_0_24px_-4px_rgba(0,0,0,0.05)] dark:shadow-none transition-colors duration-300">
         <div className="flex h-16 items-center gap-2 border-b border-border px-6">
           <div className="flex h-8 w-8 items-center justify-center">
             <img src="/autochat.png" alt="Autochat Logo" className="h-7 w-7 object-contain drop-shadow-md" />
@@ -453,10 +502,10 @@ const Dashboard = () => {
         </div>
       </aside>
 
-      {/* Main Content */}
-      <main className="ml-64 flex-1">
-        {/* Header */}
-        <header className="sticky top-0 z-30 flex h-16 items-center justify-between border-b border-border bg-background/80 px-8 backdrop-blur-xl">
+      {/* Main area — scrolls internally so the bottom nav stays fixed */}
+      <main className="flex flex-col flex-1 md:ml-64 w-full overflow-y-auto">
+        {/* Header — Desktop only */}
+        <header className="hidden md:flex sticky top-0 z-30 h-16 items-center justify-between border-b border-border bg-background/80 px-8 backdrop-blur-xl flex-shrink-0">
           <h1 className="font-display text-xl font-semibold text-foreground">Dashboard</h1>
           <div className="flex items-center gap-3">
             {/* Connection status */}
@@ -473,13 +522,49 @@ const Dashboard = () => {
                 </>
               )}
             </div>
-            <div className="flex h-8 w-8 items-center justify-center rounded-full bg-secondary text-sm font-semibold text-foreground">
-              {authLoading ? <Loader2 className="h-3 w-3 animate-spin" /> : initials.slice(0, 1)}
+            <div className="flex h-8 w-8 items-center justify-center rounded-full bg-secondary text-sm font-semibold text-foreground overflow-hidden">
+              {authLoading ? (
+                <Loader2 className="h-3 w-3 animate-spin" />
+              ) : igProfilePic ? (
+                <img src={igProfilePic} alt="Profile" className="h-full w-full object-cover" />
+              ) : (
+                initials.slice(0, 1)
+              )}
             </div>
           </div>
         </header>
 
-        <div className="p-8">
+        {/* Header — Mobile only (compact) */}
+        <header className="md:hidden sticky top-0 z-30 flex h-14 items-center justify-between border-b border-border bg-background/90 px-4 backdrop-blur-xl flex-shrink-0">
+          <div className="flex items-center gap-2">
+            <img src="/autochat.png" alt="Autochat" className="h-6 w-6 object-contain" />
+            <span className="font-display text-base font-bold text-foreground">
+              Autochat <span className="text-gradient">El Vision</span>
+            </span>
+          </div>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={toggleTheme}
+              className="flex h-8 w-8 items-center justify-center rounded-full bg-secondary text-muted-foreground hover:text-foreground transition-colors"
+            >
+              {theme === "light" ? <Moon className="h-4 w-4" /> : <Sun className="h-4 w-4" />}
+            </button>
+            <div
+              className="h-8 w-8 rounded-full overflow-hidden border-2 border-border bg-secondary flex items-center justify-center text-xs font-bold text-foreground cursor-pointer flex-shrink-0"
+              onClick={() => setActiveTab("settings")}
+            >
+              {authLoading ? (
+                <Loader2 className="h-3 w-3 animate-spin" />
+              ) : igProfilePic ? (
+                <img src={igProfilePic} alt="Profile" className="h-full w-full object-cover" />
+              ) : (
+                initials.slice(0, 1)
+              )}
+            </div>
+          </div>
+        </header>
+
+        <div className="p-4 pb-24 md:p-8 md:pb-8 overflow-x-hidden max-w-full">
 
           {/* ── DEMO PANEL BANNER (shows when not logged in) ─────────────────── */}
           {!isLoggedIn && !authLoading && activeTab === "dashboard" && (
@@ -511,47 +596,41 @@ const Dashboard = () => {
             </motion.div>
           )}
 
-          {/* ── Facebook Connection Card ──────────────────────────────────────── */}
+          {/* ── Meta Connection Card (DemoPanel style — compact) ───────────────── */}
           {activeTab === "dashboard" && (
             <motion.div
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.5 }}
-              className="mb-8 rounded-xl border border-border bg-card p-6"
+              className="mb-6 flex items-center justify-between rounded-2xl border border-border bg-card p-4"
             >
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-4">
-                  <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-[hsl(214,89%,52%)]/10">
-                    <Facebook className="h-6 w-6 text-primary" />
-                  </div>
-                  <div>
-                    <h3 className="font-display font-semibold text-foreground">Facebook Connection</h3>
-                    <p className="text-sm text-muted-foreground">
-                      {isMetaConnected
-                        ? "Akun berhasil terhubung dengan Meta."
-                        : "Connect your Facebook Page to start automating messages."}
-                    </p>
-                  </div>
+              <div className="flex items-center gap-3 min-w-0">
+                <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-primary/10">
+                  <Facebook className="h-4 w-4 text-primary" />
                 </div>
-                <div className="flex items-center gap-2">
-                  {isMetaConnected ? (
-                    <>
-                      <Button variant="outline" size="sm" className="gap-2" onClick={connectToMeta}>
-                        <RefreshCw className="h-3.5 w-3.5" />
-                        Refresh Token
-                      </Button>
-                      <Button variant="ghost" size="sm" className="gap-2 text-destructive hover:text-destructive" onClick={disconnectMeta}>
-                        <Unplug className="h-3.5 w-3.5" />
-                        Disconnect
-                      </Button>
-                    </>
-                  ) : (
-                    <Button variant="facebook" size="sm" className="gap-2" onClick={isLoggedIn ? connectToMeta : requireLogin}>
-                      <Facebook className="h-4 w-4" />
-                      Connect Facebook
+                <div className="min-w-0">
+                  <p className="text-sm font-medium text-foreground truncate">Meta Ecosystem</p>
+                  <p className="text-xs text-muted-foreground truncate">
+                    {isMetaConnected ? "Token aktif ✅" : "Belum terhubung"}
+                  </p>
+                </div>
+              </div>
+              <div className="flex gap-2 shrink-0 ml-2">
+                {isMetaConnected ? (
+                  <>
+                    <Button variant="outline" size="sm" onClick={isLoggedIn ? connectToMeta : requireLogin} className="text-xs gap-1">
+                      <RefreshCw className="h-3 w-3" />
                     </Button>
-                  )}
-                </div>
+                    <Button variant="ghost" size="sm" onClick={disconnectMeta} className="text-xs text-destructive gap-1">
+                      <Unplug className="h-3 w-3" />
+                    </Button>
+                  </>
+                ) : (
+                  <Button variant="facebook" size="sm" className="gap-1.5 text-xs" onClick={isLoggedIn ? connectToMeta : requireLogin}>
+                    <Facebook className="h-3.5 w-3.5" />
+                    Connect
+                  </Button>
+                )}
               </div>
             </motion.div>
           )}
@@ -861,7 +940,7 @@ const Dashboard = () => {
           )}
 
           {/* ── Auto-Replies (Triggers) / Automations Tab ─────────────────────── */}
-          {(activeTab === "dashboard" || activeTab === "automations") && (
+          {activeTab === "automations" && (
             <motion.div
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
@@ -887,6 +966,8 @@ const Dashboard = () => {
               {isAddingTrigger && session?.user && (
                 <AutomationWizard
                   userId={session.user.id}
+                  metaInstagramId={client?.meta_instagram_id}
+                  metaAccessToken={client?.meta_access_token}
                   onSuccess={() => {
                     setIsAddingTrigger(false);
                     fetchTriggers(session.user.id);
@@ -992,6 +1073,27 @@ const Dashboard = () => {
 
         </div>
       </main>
+
+      {/* Bottom Navigation — Mobile Only, exact DemoPanel pattern */}
+      <nav className="md:hidden fixed bottom-0 left-0 right-0 z-50 border-t border-border bg-background/95 backdrop-blur-xl">
+        <div className="grid grid-cols-5 h-16" style={{ paddingBottom: "env(safe-area-inset-bottom)" }}>
+          {bottomTabs.map((tab) => {
+            const isActive = activeTab === tab.id;
+            return (
+              <button
+                key={tab.id}
+                onClick={() => setActiveTab(tab.id)}
+                className={`flex flex-col items-center justify-center gap-0.5 transition-all ${isActive ? "text-primary" : "text-muted-foreground hover:text-foreground"}`}
+              >
+                <div className={`flex h-9 w-9 items-center justify-center rounded-2xl transition-all ${isActive ? "bg-primary/10" : ""}`}>
+                  <tab.icon className={`h-5 w-5 transition-all ${isActive ? "scale-110" : ""}`} />
+                </div>
+                <span className={`text-[10px] font-medium ${isActive ? "text-primary" : "text-muted-foreground"}`}>{tab.label}</span>
+              </button>
+            );
+          })}
+        </div>
+      </nav>
     </div>
   );
 };

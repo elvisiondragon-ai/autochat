@@ -2,6 +2,8 @@ import { useState } from "react";
 import { motion } from "framer-motion";
 import { ArrowLeft, Trash2, CheckCircle2, Loader2, Mail, AlertTriangle } from "lucide-react";
 import { useNavigate } from "react-router-dom";
+import { useLanguage } from "../contexts/LanguageContext";
+import { LanguageSwitcher } from "../components/LanguageSwitcher";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -9,6 +11,7 @@ import { useToast } from "@/hooks/use-toast";
 
 const DataDeletion = () => {
     const navigate = useNavigate();
+    const { t } = useLanguage();
     const { toast } = useToast();
     const [email, setEmail] = useState("");
     const [reason, setReason] = useState("");
@@ -62,14 +65,15 @@ const DataDeletion = () => {
                             Autochat <span className="text-gradient">El Vision</span>
                         </span>
                     </button>
+                    <LanguageSwitcher />
                 </div>
             </nav>
 
-            <main className="container mx-auto max-w-2xl px-6 pb-24 pt-28">
+            <main className="container mx-auto max-w-3xl px-6 pb-24 pt-28">
                 <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.5 }}>
-                    <button onClick={() => navigate(-1)} className="mb-6 flex w-fit items-center gap-2 text-sm text-muted-foreground hover:text-foreground transition-colors">
+                    <button onClick={() => navigate("/")} className="mb-6 flex w-fit items-center gap-2 rounded-xl border border-border bg-card px-4 py-2.5 text-sm font-medium text-muted-foreground shadow-sm transition-colors hover:bg-accent hover:text-accent-foreground">
                         <ArrowLeft className="h-4 w-4" />
-                        Kembali
+                        {t('nav.back')}
                     </button>
 
                     <div className="mb-8 flex items-center gap-3">

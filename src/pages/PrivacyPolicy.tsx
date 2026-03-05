@@ -1,9 +1,12 @@
 import { motion } from "framer-motion";
 import { ArrowLeft, Shield, Mail, Trash2 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
+import { useLanguage } from "../contexts/LanguageContext";
+import { LanguageSwitcher } from "../components/LanguageSwitcher";
 
 const PrivacyPolicy = () => {
     const navigate = useNavigate();
+    const { t } = useLanguage();
 
     return (
         <div className="min-h-screen bg-background">
@@ -18,14 +21,15 @@ const PrivacyPolicy = () => {
                             Autochat <span className="text-gradient">El Vision</span>
                         </span>
                     </button>
+                    <LanguageSwitcher />
                 </div>
             </nav>
 
             <main className="container mx-auto max-w-3xl px-6 pb-24 pt-28">
                 <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.5 }}>
-                    <button onClick={() => navigate(-1)} className="mb-6 flex w-fit items-center gap-2 text-sm text-muted-foreground hover:text-foreground transition-colors">
+                    <button onClick={() => navigate("/")} className="mb-6 flex w-fit items-center gap-2 rounded-xl border border-border bg-card px-4 py-2.5 text-sm font-medium text-muted-foreground shadow-sm transition-colors hover:bg-accent hover:text-accent-foreground">
                         <ArrowLeft className="h-4 w-4" />
-                        Kembali
+                        {t('nav.back')}
                     </button>
                     <div className="mb-8 flex items-center gap-3">
                         <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-primary/10">

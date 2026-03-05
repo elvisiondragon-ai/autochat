@@ -2,7 +2,10 @@ import { createRoot } from "react-dom/client";
 import App from "./App.tsx";
 import "./index.css";
 
-const APP_VERSION = '2026.03.06.07'; // <-- Changed to force an update for Zap removal
+// ==========================================
+// CACHE BUSTING VERSION - CHANGE THIS TO FORCE RELOAD!
+const APP_VERSION = "2026.03.06.20";
+// ==========================================<-- Changed to force an update for Delete Account & Real Metrics
 
 if (localStorage.getItem('v_cache') !== APP_VERSION) {
     // 1. Clear all Service Workers
