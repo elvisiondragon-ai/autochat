@@ -169,7 +169,7 @@ const AuthPage = () => {
                     <div className="flex h-9 w-9 items-center justify-center">
                         <img src="/autochat.png" alt="Autochat Logo" className="h-7 w-7 object-contain drop-shadow-md" />
                     </div>
-                    <span className="font-display text-xl font-bold text-foreground">
+                    <span className="font-display text-lg font-bold text-foreground">
                         Autochat <span className="text-gradient">El Vision</span>
                     </span>
                 </div>

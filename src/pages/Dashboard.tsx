@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import {
   Zap, LayoutDashboard, FileText, Settings, LogOut, Facebook,
   CheckCircle2, XCircle, RefreshCw, Unplug, ChevronDown, MessageSquare,
@@ -44,6 +45,7 @@ interface AutochatTrigger {
 interface AutochatClient {
   display_name?: string;
   email?: string;
+  phone_number?: string;
   status?: "free" | "paid";
   meta_access_token?: string | null;
   meta_page_id?: string | null;
@@ -58,6 +60,16 @@ declare global {
   }
 }
 
+export interface AutochatAudienceLog {
+  id: string;
+  ig_username: string;
+  follow_status: string;
+  interaction_type: string;
+  auto_chat_status: string;
+  interaction_text?: string;
+  created_at: string;
+}
+
 const Dashboard = () => {
   const navigate = useNavigate();
   const { toast } = useToast();
@@ -65,6 +77,7 @@ const Dashboard = () => {
   const [session, setSession] = useState<Session | null | undefined>(undefined);
   const [client, setClient] = useState<AutochatClient | null>(null);
   const [triggers, setTriggers] = useState<AutochatTrigger[]>([]);
+  const [audienceLogs, setAudienceLogs] = useState<AutochatAudienceLog[]>([]);
   const [authLoading, setAuthLoading] = useState(true);
 
   // UI State
@@ -80,6 +93,23 @@ const Dashboard = () => {
     button_url_2: ""
   });
   const [isSaving, setIsSaving] = useState(false);
+
+  // Settings State
+  const [settingsName, setSettingsName] = useState("");
+  const [settingsPhone, setSettingsPhone] = useState("");
+  const [settingsEmail, setSettingsEmail] = useState("");
+  const [settingsPassword, setSettingsPassword] = useState("");
+  const [isUpdatingProfile, setIsUpdatingProfile] = useState(false);
+
+  useEffect(() => {
+    if (client) {
+      setSettingsName(client.display_name || "");
+      setSettingsPhone(client.phone_number || "");
+    }
+    if (session?.user?.email) {
+      setSettingsEmail(session.user.email);
+    }
+  }, [client, session]);
 
   // Theme State
   const [theme, setTheme] = useState<"light" | "dark">("dark");
@@ -106,6 +136,7 @@ const Dashboard = () => {
           if (cData) setClient(cData);
 
           fetchTriggers(s.user.id);
+          fetchAudienceLogs(s.user.id);
         } catch {/* non-blocking */ }
       }
       setAuthLoading(false);
@@ -198,14 +229,23 @@ const Dashboard = () => {
           toast({ title: "Login Facebook dibatalkan", description: "Anda menutup pop-up atau tidak memberikan izin.", variant: "destructive" });
         }
       }, {
-        // Required scopes for Instagram messaging and Graph API reading
-        scope: 'pages_messaging,pages_show_list,pages_manage_metadata,pages_read_engagement,instagram_basic,instagram_manage_messages,instagram_manage_comments',
+        // Required scopes for complete Instagram & FB publishing and analytics
+        scope: 'pages_messaging,pages_show_list,pages_manage_metadata,pages_read_engagement,pages_manage_posts,read_insights,instagram_basic,instagram_manage_messages,instagram_manage_comments,instagram_content_publish',
         return_scopes: true
       });
     } catch (err) {
       console.error("[AutoChat] Error calling FB.login:", err);
       toast({ title: "Error memuat Pop-Up", description: "Browser Anda memblokir script Meta.", variant: "destructive" });
     }
+  };
+
+  const fetchAudienceLogs = async (userId: string) => {
+    const { data: logsData } = await supabase
+      .from("autochat_audience_logs")
+      .select("*")
+      .eq("user_id", userId)
+      .order("created_at", { ascending: false });
+    if (logsData) setAudienceLogs(logsData);
   };
 
   const fetchTriggers = async (userId: string) => {
@@ -262,6 +302,51 @@ const Dashboard = () => {
       setTriggers(prev => prev.filter(t => t.id !== id));
     } catch (err: any) {
       toast({ title: "Gagal menghapus", description: err.message, variant: "destructive" });
+    }
+  };
+
+  const handleUpdateProfile = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!session?.user) return requireLogin();
+
+    setIsUpdatingProfile(true);
+    let successMessage = "Profil berhasil diperbarui.";
+
+    try {
+      // 1. Update Auth Email & Password if changed
+      if (settingsEmail !== session.user.email || settingsPassword.trim() !== "") {
+        const authUpdates: { email?: string; password?: string } = {};
+        if (settingsEmail !== session.user.email) authUpdates.email = settingsEmail;
+        if (settingsPassword.trim() !== "") authUpdates.password = settingsPassword;
+
+        const { error: authError } = await supabase.auth.updateUser(authUpdates);
+        if (authError) throw authError;
+
+        if (authUpdates.email) {
+          successMessage += " Cek inbox Anda untuk konfirmasi perubahan email.";
+        }
+        setSettingsPassword(""); // Clear password field after success
+      }
+
+      // 2. Update Autochat_clients Profile
+      const { error: clientError } = await supabase
+        .from("autochat_clients")
+        .update({
+          display_name: settingsName,
+          phone_number: settingsPhone
+        })
+        .eq("user_id", session.user.id);
+
+      if (clientError) throw clientError;
+
+      // Update Local State
+      setClient(prev => prev ? { ...prev, display_name: settingsName, phone_number: settingsPhone } : null);
+
+      toast({ title: "Update Sukses", description: successMessage });
+    } catch (err: any) {
+      toast({ title: "Gagal Update", description: err.message, variant: "destructive" });
+    } finally {
+      setIsUpdatingProfile(false);
     }
   };
 
@@ -501,103 +586,264 @@ const Dashboard = () => {
           )}
 
           {/* ── Connected Pages List ──────────────────────────────────────────── */}
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.5, delay: 0.2 }}
-          >
-            <div className="mb-4 flex items-center justify-between">
-              <div className="flex items-center gap-3">
-                <h2 className="font-display text-lg font-semibold text-foreground">Connected Pages</h2>
-                {!isLoggedIn && (
-                  <span className="rounded-full border border-border bg-secondary px-2.5 py-0.5 text-xs text-muted-foreground">
-                    Demo
-                  </span>
-                )}
+          {/* ── Pages Tab (Connection Management) ───────────────────────────── */}
+          {activeTab === "pages" && (
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.5, delay: 0.2 }}
+            >
+              <div className="mb-4 flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <h2 className="font-display text-lg font-semibold text-foreground">Pengaturan Akun Meta</h2>
+                </div>
               </div>
-              <Button
-                variant="outline"
-                size="sm"
-                className="gap-2"
-                onClick={isLoggedIn ? undefined : requireLogin}
-              >
-                <Facebook className="h-3.5 w-3.5" />
-                Add Page
-                <ChevronDown className="h-3 w-3" />
-              </Button>
-            </div>
 
-            <div className="space-y-3">
-              {mockPages.map((page, i) => (
-                <motion.div
-                  key={page.id}
-                  initial={{ opacity: 0, x: -20 }}
-                  animate={{ opacity: 1, x: 0 }}
-                  transition={{ delay: 0.3 + i * 0.1 }}
-                  className="flex items-center justify-between rounded-xl border border-border bg-card p-5 transition-colors hover:border-primary/20"
-                >
-                  <div className="flex items-center gap-4">
-                    <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-secondary font-display text-sm font-bold text-foreground">
-                      {page.name.charAt(0)}
+              <div className="space-y-4">
+                {!isMetaConnected ? (
+                  <div className="flex flex-col items-center justify-center rounded-xl border border-dashed border-border bg-card p-12 text-center">
+                    <div className="mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-[hsl(214,89%,52%)]/10">
+                      <Facebook className="h-8 w-8 text-primary" />
                     </div>
-                    <div>
-                      <div className="flex items-center gap-2">
-                        <span className="font-medium text-foreground">{page.name}</span>
-                        {page.hasInstagram && (
-                          <Instagram className="h-3.5 w-3.5 text-muted-foreground" />
-                        )}
-                      </div>
-                      <div className="flex items-center gap-3 text-sm text-muted-foreground">
-                        <span>{page.category}</span>
-                        <span>·</span>
-                        <span>{page.followers} followers</span>
-                      </div>
-                    </div>
+                    <h3 className="font-display text-xl font-bold text-foreground">Belum Ada Akun Terhubung</h3>
+                    <p className="mt-2 mb-6 max-w-sm text-sm text-muted-foreground">
+                      Hubungkan akun Facebook dan Instagram Anda untuk mulai menggunakan fitur Autochat dan Auto-Posting.
+                    </p>
+                    <Button variant="facebook" onClick={isLoggedIn ? connectToMeta : requireLogin}>
+                      <Facebook className="mr-2 h-4 w-4" />
+                      Connect Facebook
+                    </Button>
                   </div>
-                  <div className="flex items-center gap-4">
-                    <div className="text-right">
-                      <div className="text-sm font-medium text-foreground">
-                        {page.messagesThisMonth.toLocaleString()}
+                ) : (
+                  <div className="flex flex-col md:flex-row items-start md:items-center justify-between rounded-xl border border-border bg-card p-6 transition-colors hover:border-primary/20">
+                    <div className="flex items-center gap-4 mb-4 md:mb-0">
+                      <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-success/10">
+                        <CheckCircle2 className="h-6 w-6 text-success" />
                       </div>
-                      <div className="text-xs text-muted-foreground">messages/mo</div>
+                      <div>
+                        <div className="flex items-center gap-2">
+                          <span className="font-medium text-foreground text-lg">Meta Ecosystem</span>
+                          <div className="flex gap-1">
+                            <Facebook className="h-4 w-4 text-[hsl(214,89%,52%)]" />
+                            <Instagram className="h-4 w-4 text-pink-500" />
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-3 text-sm text-muted-foreground mt-1">
+                          <span className="flex items-center gap-1">
+                            <span className="h-2 w-2 rounded-full bg-success"></span>
+                            Status: Token Aktif
+                          </span>
+                          <span>·</span>
+                          <span className="text-xs">
+                            Mencakup akses Page & Instagram
+                          </span>
+                        </div>
+                      </div>
                     </div>
-                    <div className="flex items-center gap-2">
-                      {page.isActive ? (
-                        <span className="flex items-center gap-1.5 rounded-full bg-success/10 px-3 py-1 text-xs font-medium text-success">
-                          <CheckCircle2 className="h-3 w-3" />
-                          Active
-                        </span>
-                      ) : (
-                        <span className="flex items-center gap-1.5 rounded-full bg-muted px-3 py-1 text-xs font-medium text-muted-foreground">
-                          <XCircle className="h-3 w-3" />
-                          Inactive
-                        </span>
-                      )}
+
+                    <div className="flex items-center gap-3 w-full md:w-auto">
                       <Button
-                        variant="ghost"
-                        size="icon"
-                        className="h-8 w-8"
-                        onClick={isLoggedIn ? undefined : requireLogin}
+                        variant="outline"
+                        className="gap-2 flex-1 md:flex-none"
+                        onClick={connectToMeta}
                       >
-                        <MoreHorizontal className="h-4 w-4" />
+                        <RefreshCw className="h-4 w-4" />
+                        Perbarui Izin
+                      </Button>
+                      <Button
+                        variant="destructive"
+                        className="gap-2 flex-1 md:flex-none"
+                        onClick={disconnectMeta}
+                      >
+                        <Unplug className="h-4 w-4" />
+                        Putuskan (Disconnect)
                       </Button>
                     </div>
                   </div>
-                </motion.div>
-              ))}
-            </div>
-          </motion.div>
-
-          {/* ── Audience Tab (Empty State) ──────────────────────────────────── */}
-          {activeTab === "audience" && (
-            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="flex min-h-[400px] flex-col items-center justify-center rounded-xl border border-dashed border-border p-8 text-center bg-card">
-              <div className="flex h-16 w-16 items-center justify-center rounded-full bg-primary/10 mb-4">
-                <Users className="h-8 w-8 text-primary" />
+                )}
               </div>
-              <h3 className="font-display text-xl font-bold text-foreground">Fitur Belum Tersedia</h3>
-              <p className="mt-2 max-w-sm text-sm text-muted-foreground">
-                Daftar kontak audience yang pernah berinteraksi dengan Anda melalui DM akan muncul di sini pada update mendatang.
-              </p>
+            </motion.div>
+          )}
+
+          {/* ── Audience Tab (Interaction Logs) ───────────────────────────── */}
+          {activeTab === "audience" && (
+            <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.5, delay: 0.2 }}>
+              <div className="mb-4 flex items-center justify-between">
+                <h2 className="font-display text-lg font-semibold text-foreground">Log Interaksi Audience</h2>
+                <Button variant="outline" size="sm" className="gap-2" onClick={() => session?.user && fetchAudienceLogs(session.user.id)}>
+                  <RefreshCw className="h-3.5 w-3.5" />
+                  Refresh
+                </Button>
+              </div>
+
+              <div className="rounded-xl border border-border bg-card overflow-hidden shadow-sm">
+                <div className="grid grid-cols-12 gap-4 border-b border-border bg-secondary/30 px-6 py-3 text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+                  <div className="col-span-3">Akun Instagram</div>
+                  <div className="col-span-3">Status Follows</div>
+                  <div className="col-span-3">Aktivitas</div>
+                  <div className="col-span-3 text-right">Status Auto Chat</div>
+                </div>
+
+                <div className="divide-y divide-border">
+                  {audienceLogs.length > 0 ? (
+                    audienceLogs.map((log) => (
+                      <div key={log.id} className="grid grid-cols-12 items-center gap-4 px-6 py-4 hover:bg-muted/30 transition-colors">
+                        <div className="col-span-3">
+                          <div className="flex items-center gap-3">
+                            <div className="flex h-8 w-8 items-center justify-center rounded-full bg-primary/10 text-primary font-bold">
+                              {log.ig_username.charAt(0).toUpperCase()}
+                            </div>
+                            <span className="font-medium text-foreground">@{log.ig_username}</span>
+                          </div>
+                        </div>
+                        <div className="col-span-3">
+                          {log.follow_status === 'follower' ? (
+                            <span className="inline-flex items-center gap-1.5 rounded-full bg-success/15 px-2.5 py-1 text-xs font-semibold text-success">
+                              <CheckCircle2 className="h-3 w-3" />
+                              Follower
+                            </span>
+                          ) : (
+                            <span className="inline-flex items-center gap-1.5 rounded-full bg-muted px-2.5 py-1 text-xs font-semibold text-muted-foreground">
+                              <XCircle className="h-3 w-3" />
+                              Non-Follower
+                            </span>
+                          )}
+                        </div>
+                        <div className="col-span-3">
+                          <div className="flex flex-col">
+                            <span className="text-sm font-medium text-foreground capitalize">
+                              {log.interaction_type.replace('_', ' ')}
+                            </span>
+                            {log.interaction_text && (
+                              <span className="text-xs text-muted-foreground truncate max-w-[150px]">
+                                "{log.interaction_text}"
+                              </span>
+                            )}
+                          </div>
+                        </div>
+                        <div className="col-span-3 text-right">
+                          {log.auto_chat_status === 'sent' ? (
+                            <span className="inline-flex items-center gap-1.5 text-success text-sm font-medium">
+                              <CheckCircle2 className="h-4 w-4" />
+                              Terkirim
+                            </span>
+                          ) : log.auto_chat_status === 'failed' ? (
+                            <span className="inline-flex items-center gap-1.5 text-destructive text-sm font-medium">
+                              <XCircle className="h-4 w-4" />
+                              Gagal
+                            </span>
+                          ) : (
+                            <span className="inline-flex items-center gap-1.5 text-muted-foreground text-sm font-medium">
+                              <RefreshCw className="h-4 w-4 animate-spin-slow" />
+                              Pending
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                    ))
+                  ) : (
+                    <div className="flex min-h-[300px] flex-col items-center justify-center p-8 text-center bg-card">
+                      <div className="mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-primary/5">
+                        <Users className="h-8 w-8 text-muted-foreground" />
+                      </div>
+                      <h3 className="font-display text-lg font-semibold text-foreground">Belum Ada Interaksi</h3>
+                      <p className="mt-1 max-w-sm text-sm text-muted-foreground">
+                        Daftar akun Instagram yang berinteraksi (DM/Komentar) ke bot Anda akan muncul di sini.
+                      </p>
+                    </div>
+                  )}
+                </div>
+              </div>
+            </motion.div>
+          )}
+
+          {/* ── Settings Tab (Account Management) ───────────────────────────── */}
+          {activeTab === "settings" && (
+            <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.5, delay: 0.2 }}>
+              <div className="mb-6">
+                <h2 className="font-display text-2xl font-bold text-foreground">Pengaturan Akun</h2>
+                <p className="text-sm text-muted-foreground mt-1">
+                  Kelola informasi profil, email, dan keamanan password Anda.
+                </p>
+              </div>
+
+              <div className="rounded-xl border border-border bg-card p-6 shadow-sm max-w-2xl">
+                <form onSubmit={handleUpdateProfile} className="space-y-6">
+
+                  {/* Profil Section */}
+                  <div className="space-y-4">
+                    <h3 className="text-lg font-semibold border-b border-border pb-2">Profil Utama</h3>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div className="space-y-2">
+                        <label className="text-sm font-medium text-foreground" htmlFor="settings-name">Nama Tampilan</label>
+                        <Input
+                          id="settings-name"
+                          placeholder="John Doe"
+                          value={settingsName}
+                          onChange={(e) => setSettingsName(e.target.value)}
+                          className="w-full"
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <label className="text-sm font-medium text-foreground" htmlFor="settings-phone">Nomor Telepon (WA)</label>
+                        <Input
+                          id="settings-phone"
+                          placeholder="08123456789"
+                          value={settingsPhone}
+                          onChange={(e) => setSettingsPhone(e.target.value)}
+                          className="w-full"
+                        />
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Keamanan Section */}
+                  <div className="space-y-4 pt-4">
+                    <h3 className="text-lg font-semibold border-b border-border pb-2">Keamanan & Login</h3>
+                    <div className="space-y-4">
+                      <div className="space-y-2">
+                        <label className="text-sm font-medium text-foreground" htmlFor="settings-email">Alamat Email</label>
+                        <Input
+                          id="settings-email"
+                          type="email"
+                          placeholder="email@anda.com"
+                          value={settingsEmail}
+                          onChange={(e) => setSettingsEmail(e.target.value)}
+                          className="w-full"
+                          required
+                        />
+                        <p className="text-xs text-muted-foreground mt-1">Jika Anda mengganti email, sistem akan mengirimkan link verifikasi ke inbox baru Anda.</p>
+                      </div>
+
+                      <div className="space-y-2">
+                        <label className="text-sm font-medium text-foreground" htmlFor="settings-password">Password Baru</label>
+                        <Input
+                          id="settings-password"
+                          type="password"
+                          placeholder="Kosongkan jika tidak ingin ganti"
+                          value={settingsPassword}
+                          onChange={(e) => setSettingsPassword(e.target.value)}
+                          className="w-full"
+                        />
+                        <p className="text-xs text-muted-foreground mt-1">Minimal 6 karakter. Isi hanya jika Anda ingin mengubah sandi saat ini.</p>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="pt-4 flex justify-end">
+                    <Button type="submit" disabled={isUpdatingProfile} className="px-8 flex gap-2">
+                      {isUpdatingProfile ? (
+                        <>
+                          <RefreshCw className="h-4 w-4 animate-spin" />
+                          Menyimpan...
+                        </>
+                      ) : (
+                        <>Simpan Perubahan</>
+                      )}
+                    </Button>
+                  </div>
+                </form>
+              </div>
             </motion.div>
           )}
 

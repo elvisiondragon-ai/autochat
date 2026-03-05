@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { motion } from "framer-motion";
-import { Zap, Trash2, CheckCircle2, Loader2, Mail, AlertTriangle } from "lucide-react";
+import { ArrowLeft, Trash2, CheckCircle2, Loader2, Mail, AlertTriangle } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -55,8 +55,8 @@ const DataDeletion = () => {
             <nav className="fixed top-0 left-0 right-0 z-50 border-b border-border/50 bg-background/80 backdrop-blur-xl">
                 <div className="container mx-auto flex h-16 items-center justify-between px-6">
                     <button onClick={() => navigate("/")} className="flex items-center gap-2">
-                        <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary">
-                            <Zap className="h-4 w-4 text-primary-foreground" />
+                        <div className="flex h-8 w-8 items-center justify-center">
+                            <img src="/autochat.png" alt="Autochat Logo" className="h-7 w-7 object-contain drop-shadow-md" />
                         </div>
                         <span className="font-display text-lg font-bold text-foreground">
                             Autochat <span className="text-gradient">El Vision</span>
@@ -67,6 +67,10 @@ const DataDeletion = () => {
 
             <main className="container mx-auto max-w-2xl px-6 pb-24 pt-28">
                 <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.5 }}>
+                    <button onClick={() => navigate(-1)} className="mb-6 flex w-fit items-center gap-2 text-sm text-muted-foreground hover:text-foreground transition-colors">
+                        <ArrowLeft className="h-4 w-4" />
+                        Kembali
+                    </button>
 
                     <div className="mb-8 flex items-center gap-3">
                         <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-destructive/10">

@@ -1,6 +1,6 @@
 import { motion } from "framer-motion";
 import { Button } from "@/components/ui/button";
-import { MessageSquare, Zap, Shield, BarChart3, ArrowRight, Facebook } from "lucide-react";
+import { MessageSquare, Globe, Shield, BarChart3, ArrowRight, Facebook } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 
 const features = [
@@ -10,7 +10,7 @@ const features = [
     description: "Send automated messages through Messenger & Instagram DMs to engage your audience 24/7.",
   },
   {
-    icon: Zap,
+    icon: Globe,
     title: "Instant Connection",
     description: "Connect your Facebook Pages and Instagram accounts in seconds with OAuth 2.0 integration.",
   },
@@ -44,8 +44,8 @@ const Landing = () => {
       <nav className="fixed top-0 left-0 right-0 z-50 border-b border-border/50 bg-background/80 backdrop-blur-xl">
         <div className="container mx-auto flex h-16 items-center justify-between px-6">
           <div className="flex items-center gap-2">
-            <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary">
-              <Zap className="h-4 w-4 text-primary-foreground" />
+            <div className="flex h-8 w-8 items-center justify-center">
+              <img src="/autochat.png" alt="Autochat Logo" className="h-7 w-7 object-contain drop-shadow-md" />
             </div>
             <span className="font-display text-lg font-bold text-foreground">
               Autochat <span className="text-gradient">El Vision</span>
@@ -243,8 +243,8 @@ const Landing = () => {
       <footer className="border-t border-border py-12">
         <div className="container mx-auto flex flex-col items-center justify-between gap-4 px-6 md:flex-row">
           <div className="flex items-center gap-2">
-            <div className="flex h-6 w-6 items-center justify-center rounded bg-primary">
-              <Zap className="h-3 w-3 text-primary-foreground" />
+            <div className="flex h-6 w-6 items-center justify-center">
+              <img src="/autochat.png" alt="Autochat Logo" className="h-5 w-5 object-contain drop-shadow-md" />
             </div>
             <span className="font-display text-sm font-semibold text-foreground">
               Autochat El Vision
