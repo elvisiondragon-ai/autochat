@@ -267,13 +267,14 @@ export const AutomationWizard: React.FC<AutomationWizardProps> = ({ userId, meta
     const [showPostPicker, setShowPostPicker] = useState(false);
     const [triggerSource, setTriggerSource] = useState<string>("");
     // Keyword State
-    const [isAnyWord, setIsAnyWord] = useState<boolean>(false);
+    const [isAnyWord, setIsAnyWord] = useState<boolean>(true); // Any word default
     const [keyword, setKeyword] = useState<string>("");
     // Comment Reply State
-    const [enableCommentReply, setEnableCommentReply] = useState<boolean>(false);
-    const [commentReplies, setCommentReplies] = useState<string[]>([""]); // Max 3
+    const [enableCommentReply, setEnableCommentReply] = useState<boolean>(true); // Default to ON
+    const [commentReplies, setCommentReplies] = useState<string[]>(["Cek Dm Kak 🚀"]); // Max 3
     // --- NEW BRANCHING FLOW (7 STEPS) ---
     const [flowType, setFlowType] = useState<"direct" | "sequence">("sequence");
+    const [isFollowerOnly, setIsFollowerOnly] = useState<boolean>(false);
 
     // Step 5 State (Opening DM - Previously Step 4)
     const [step4Text, setStep4Text] = useState<string>("");
@@ -289,6 +290,13 @@ export const AutomationWizard: React.FC<AutomationWizardProps> = ({ userId, meta
     const [step6Text, setStep6Text] = useState<string>("");
     const [step6UrlTitle, setStep6UrlTitle] = useState<string>("");
     const [step6UrlLink, setStep6UrlLink] = useState<string>("");
+
+    // --- Branching / Routing State (4 New Fields) ---
+    const [step4Button1LeadsTo, setStep4Button1LeadsTo] = useState<"step5" | "step6">("step5");
+    const [step4Button2LeadsTo, setStep4Button2LeadsTo] = useState<"step5" | "step6">("step6");
+    const [step5Button1LeadsTo, setStep5Button1LeadsTo] = useState<"step6" | "repeat_step5">("step6");
+    const [step5Button2LeadsTo, setStep5Button2LeadsTo] = useState<"step6" | "repeat_step5">("repeat_step5");
+
     // Steps initialized empty, will be populated by useEffect if editing
     // ----------------------------------------
     // IG Posts State
@@ -332,11 +340,22 @@ export const AutomationWizard: React.FC<AutomationWizardProps> = ({ userId, meta
             setStep6UrlTitle(initialData.step6_button_text || "");
             setStep6UrlLink(initialData.step6_button_url || "");
 
+            setStep4Button1LeadsTo(initialData.step4_button1_leads_to === "step6_follower_only" ? "step6" : (initialData.step4_button1_leads_to || "step5"));
+            setStep4Button2LeadsTo(initialData.step4_button2_leads_to === "step6_follower_only" ? "step6" : (initialData.step4_button2_leads_to || "step6"));
+            setStep5Button1LeadsTo(initialData.step5_button1_leads_to === "step6_follower_only" ? "step6" : (initialData.step5_button1_leads_to || "step6"));
+            setStep5Button2LeadsTo(initialData.step5_button2_leads_to === "step6_follower_only" ? "step6" : (initialData.step5_button2_leads_to || "repeat_step5"));
+
             // Infer flowType
             if (initialData.step5_text || initialData.step6_text) {
                 setFlowType("sequence");
+                if (initialData.step5_button1_leads_to === "step6_follower_only" || initialData.step5_button2_leads_to === "step6_follower_only" || initialData.step4_button1_leads_to === "step6_follower_only" || initialData.step4_button2_leads_to === "step6_follower_only") {
+                    setIsFollowerOnly(true);
+                } else {
+                    setIsFollowerOnly(false);
+                }
             } else if (initialData.step4_button_type === "web_url") {
                 setFlowType("direct");
+                setIsFollowerOnly(false);
             }
         }
     }, [initialData]);
@@ -484,6 +503,11 @@ export const AutomationWizard: React.FC<AutomationWizardProps> = ({ userId, meta
                 step6_text: flowType === "sequence" ? step6Text : null,
                 step6_button_text: flowType === "sequence" ? (step6UrlTitle.trim() || null) : null,
                 step6_button_url: flowType === "sequence" ? (step6UrlLink.trim() || null) : null,
+
+                step4_button1_leads_to: isFollowerOnly && step4Button1LeadsTo === "step6" ? "step6_follower_only" : step4Button1LeadsTo,
+                step4_button2_leads_to: isFollowerOnly && step4Button2LeadsTo === "step6" ? "step6_follower_only" : step4Button2LeadsTo,
+                step5_button1_leads_to: isFollowerOnly && step5Button1LeadsTo === "step6" ? "step6_follower_only" : step5Button1LeadsTo,
+                step5_button2_leads_to: isFollowerOnly && step5Button2LeadsTo === "step6" ? "step6_follower_only" : step5Button2LeadsTo,
 
                 is_active: initialData?.is_active ?? true,
             };
@@ -781,7 +805,7 @@ export const AutomationWizard: React.FC<AutomationWizardProps> = ({ userId, meta
                                 <h4 className="text-lg font-medium text-foreground mb-4">Pilih Aliran Chat</h4>
                                 <div className="flex flex-col gap-3">
                                     <div
-                                        onClick={() => setFlowType("direct")}
+                                        onClick={() => { setFlowType("direct"); setIsFollowerOnly(false); }}
                                         className={`cursor-pointer rounded-xl border-2 p-4 transition-all ${flowType === "direct" ? "border-primary bg-primary/5 shadow-[0_0_15px_-3px_rgba(255,0,0,0.1)]" : "border-border hover:border-primary/50"}`}
                                     >
                                         <div className="flex items-center gap-3">
@@ -796,16 +820,54 @@ export const AutomationWizard: React.FC<AutomationWizardProps> = ({ userId, meta
                                     </div>
 
                                     <div
-                                        onClick={() => setFlowType("sequence")}
-                                        className={`cursor-pointer rounded-xl border-2 p-4 transition-all ${flowType === "sequence" ? "border-primary bg-primary/5 shadow-[0_0_15px_-3px_rgba(255,0,0,0.1)]" : "border-border hover:border-primary/50"}`}
+                                        onClick={() => { setFlowType("sequence"); setIsFollowerOnly(false); }}
+                                        className={`cursor-pointer rounded-xl border-2 p-4 transition-all ${flowType === "sequence" && !isFollowerOnly ? "border-primary bg-primary/5 shadow-[0_0_15px_-3px_rgba(255,0,0,0.1)]" : "border-border hover:border-primary/50"}`}
                                     >
                                         <div className="flex items-center gap-3">
-                                            <div className={`flex h-5 w-5 shrink-0 items-center justify-center rounded-full border ${flowType === "sequence" ? "border-primary bg-primary" : "border-muted-foreground"}`}>
-                                                {flowType === "sequence" && <CheckCircle2 className="h-3 w-3 text-white" />}
+                                            <div className={`flex h-5 w-5 shrink-0 items-center justify-center rounded-full border ${flowType === "sequence" && !isFollowerOnly ? "border-primary bg-primary" : "border-muted-foreground"}`}>
+                                                {flowType === "sequence" && !isFollowerOnly && <CheckCircle2 className="h-3 w-3 text-white" />}
                                             </div>
                                             <div>
-                                                <span className={`font-bold text-sm block ${flowType === "sequence" ? "text-primary" : "text-foreground"}`}>B. Sequence 3 Step</span>
+                                                <span className={`font-bold text-sm block ${flowType === "sequence" && !isFollowerOnly ? "text-primary" : "text-foreground"}`}>B. Sequence 3 Step</span>
                                                 <p className="text-[10px] text-muted-foreground">Flow interaktif (Pilihan &rarr; Detail &rarr; Link Website).</p>
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    <div
+                                        onClick={() => {
+                                            setFlowType("sequence");
+                                            setIsFollowerOnly(true);
+                                            // Enable comment reply by default
+                                            setEnableCommentReply(true);
+                                            // Auto-fill Step 4 (Opening DM)
+                                            setStep4Text("Halo Kak maukah pdf gratis kita?");
+                                            setStep4BtnType("quick_reply");
+                                            setStep4Buttons([{ title: "Mau", url: "" }]);
+                                            setStep4Button1LeadsTo("step5");
+                                            // Auto-fill Step 5 (Verification block)
+                                            setStep5Text("Udah follow aku kan kak ? biar otomatis terkirim Link nya");
+                                            setStep5BtnType("quick_reply");
+                                            setStep5Buttons([
+                                                { title: "Udah Follow", url: "" },
+                                                { title: "Belum Follow", url: "" }
+                                            ]);
+                                            setStep5Button1LeadsTo("step6");
+                                            setStep5Button2LeadsTo("repeat_step5");
+                                            // Auto-fill Step 6 (Final Link)
+                                            setStep6Text("Makasih kak udah follow ini dia Link nya silahkan buka 🚀");
+                                            setStep6UrlTitle("Klik Disini");
+                                            setStep6UrlLink(""); // Leave empty for user to fill
+                                        }}
+                                        className={`cursor-pointer rounded-xl border-2 p-4 transition-all ${flowType === "sequence" && isFollowerOnly ? "border-primary bg-primary/5 shadow-[0_0_15px_-3px_rgba(255,0,0,0.1)]" : "border-border hover:border-primary/50"}`}
+                                    >
+                                        <div className="flex items-center gap-3">
+                                            <div className={`flex h-5 w-5 shrink-0 items-center justify-center rounded-full border ${flowType === "sequence" && isFollowerOnly ? "border-primary bg-primary" : "border-muted-foreground"}`}>
+                                                {flowType === "sequence" && isFollowerOnly && <CheckCircle2 className="h-3 w-3 text-white" />}
+                                            </div>
+                                            <div>
+                                                <span className={`font-bold text-sm block ${flowType === "sequence" && isFollowerOnly ? "text-primary" : "text-foreground"}`}>C. Ajak Follower Only</span>
+                                                <p className="text-[10px] text-muted-foreground">Otomatis cek & wajibkan follow sebelum link akhir.</p>
                                             </div>
                                         </div>
                                     </div>
@@ -868,24 +930,42 @@ export const AutomationWizard: React.FC<AutomationWizardProps> = ({ userId, meta
                                     ) : (
                                         <>
                                             {step4Buttons.map((btn, i) => (
-                                                <div key={i} className="flex gap-2 items-center mb-2">
-                                                    <input
-                                                        type="text"
-                                                        placeholder={step4BtnType === "quick_reply" ? "Tombol Quick Reply (Maks 20 char)" : "Judul Tombol"}
-                                                        maxLength={step4BtnType === "quick_reply" ? 20 : 50}
-                                                        value={btn.title}
-                                                        onChange={e => { const newB = [...step4Buttons]; newB[i].title = e.target.value; setStep4Buttons(newB); }}
-                                                        className="flex-1 rounded-xl border border-input px-3 py-2 text-sm focus:ring-primary"
-                                                    />
-                                                    {step4BtnType === "web_url" && (
+                                                <div key={i} className="flex flex-col gap-1 mb-3">
+                                                    <div className="flex gap-2 items-center">
                                                         <input
-                                                            type="url"
-                                                            placeholder="https://..."
-                                                            value={btn.url}
-                                                            onChange={e => { const newB = [...step4Buttons]; newB[i].url = e.target.value; setStep4Buttons(newB); }}
+                                                            type="text"
+                                                            placeholder={step4BtnType === "quick_reply" ? "Tombol Quick Reply (Maks 20 char)" : "Judul Tombol"}
+                                                            maxLength={step4BtnType === "quick_reply" ? 20 : 50}
+                                                            value={btn.title}
+                                                            onChange={e => { const newB = [...step4Buttons]; newB[i].title = e.target.value; setStep4Buttons(newB); }}
                                                             className="flex-1 rounded-xl border border-input px-3 py-2 text-sm focus:ring-primary"
                                                         />
-                                                    )}
+                                                        {step4BtnType === "web_url" && (
+                                                            <input
+                                                                type="url"
+                                                                placeholder="https://..."
+                                                                value={btn.url}
+                                                                onChange={e => { const newB = [...step4Buttons]; newB[i].url = e.target.value; setStep4Buttons(newB); }}
+                                                                className="flex-1 rounded-xl border border-input px-3 py-2 text-sm focus:ring-primary"
+                                                            />
+                                                        )}
+                                                    </div>
+
+                                                    {/* NEW BRANCHING UI FOR STEP 4 */}
+                                                    <div className="flex gap-2 mt-1">
+                                                        <span className="text-xs text-muted-foreground self-center">Tombol {i === 0 ? 'A' : 'B'} lanjut ke &rarr;</span>
+                                                        {(["step5", "step6"] as const).filter(opt => !isFollowerOnly || opt !== "step6").map(opt => {
+                                                            const currentLead = i === 0 ? step4Button1LeadsTo : step4Button2LeadsTo;
+                                                            const setter = i === 0 ? setStep4Button1LeadsTo : setStep4Button2LeadsTo;
+                                                            return (
+                                                                <button key={opt} type="button"
+                                                                    onClick={() => setter(opt)}
+                                                                    className={`text-xs px-2 py-1 rounded border transition-colors ${currentLead === opt ? "bg-primary text-primary-foreground border-primary" : "border-border text-muted-foreground hover:border-primary"}`}>
+                                                                    {opt === "step5" ? "Step 5 (lanjut)" : "Step 6 (final)"}
+                                                                </button>
+                                                            )
+                                                        })}
+                                                    </div>
                                                 </div>
                                             ))}
                                             {step4Buttons.length < 2 && (
@@ -912,6 +992,17 @@ export const AutomationWizard: React.FC<AutomationWizardProps> = ({ userId, meta
                                     />
                                 </div>
 
+                                {isFollowerOnly && (
+                                    <div className="rounded-xl border border-primary/20 bg-primary/5 p-3 mt-2">
+                                        <p className="text-xs text-primary font-medium flex items-center gap-2">
+                                            🛡️ Auto-verifikasi Follow
+                                        </p>
+                                        <p className="text-xs text-muted-foreground mt-1">
+                                            Saat user klik tombol yang menuju Step 6, sistem akan cek dulu apakah mereka benar-benar sudah follow. Jika belum, pesan ini akan diulang otomatis.
+                                        </p>
+                                    </div>
+                                )}
+
                                 <div className="rounded-xl border border-border bg-secondary/10 p-4 space-y-4 mt-4">
                                     <h5 className="text-sm font-semibold text-foreground mb-1">Tipe Tombol (Maksimal 2)</h5>
                                     <div className="flex items-center gap-4 mt-2">
@@ -927,24 +1018,42 @@ export const AutomationWizard: React.FC<AutomationWizardProps> = ({ userId, meta
                                     <div className="h-px bg-border my-2" />
 
                                     {step5Buttons.map((btn, i) => (
-                                        <div key={i} className="flex gap-2 items-center mb-2">
-                                            <input
-                                                type="text"
-                                                placeholder={step5BtnType === "quick_reply" ? "Tombol Quick Reply (Maks 20 char)" : "Judul Tombol"}
-                                                maxLength={step5BtnType === "quick_reply" ? 20 : 50}
-                                                value={btn.title}
-                                                onChange={e => { const newB = [...step5Buttons]; newB[i].title = e.target.value; setStep5Buttons(newB); }}
-                                                className="flex-1 rounded-xl border border-input px-3 py-2 text-sm focus:ring-primary"
-                                            />
-                                            {step5BtnType === "web_url" && (
+                                        <div key={i} className="flex flex-col gap-1 mb-3">
+                                            <div className="flex gap-2 items-center">
                                                 <input
-                                                    type="url"
-                                                    placeholder="https://..."
-                                                    value={btn.url}
-                                                    onChange={e => { const newB = [...step5Buttons]; newB[i].url = e.target.value; setStep5Buttons(newB); }}
+                                                    type="text"
+                                                    placeholder={step5BtnType === "quick_reply" ? "Tombol Quick Reply (Maks 20 char)" : "Judul Tombol"}
+                                                    maxLength={step5BtnType === "quick_reply" ? 20 : 50}
+                                                    value={btn.title}
+                                                    onChange={e => { const newB = [...step5Buttons]; newB[i].title = e.target.value; setStep5Buttons(newB); }}
                                                     className="flex-1 rounded-xl border border-input px-3 py-2 text-sm focus:ring-primary"
                                                 />
-                                            )}
+                                                {step5BtnType === "web_url" && (
+                                                    <input
+                                                        type="url"
+                                                        placeholder="https://..."
+                                                        value={btn.url}
+                                                        onChange={e => { const newB = [...step5Buttons]; newB[i].url = e.target.value; setStep5Buttons(newB); }}
+                                                        className="flex-1 rounded-xl border border-input px-3 py-2 text-sm focus:ring-primary"
+                                                    />
+                                                )}
+                                            </div>
+
+                                            {/* NEW BRANCHING UI FOR STEP 5 */}
+                                            <div className="flex gap-2 mt-1">
+                                                <span className="text-xs text-muted-foreground self-center">Tombol {i === 0 ? 'A' : 'B'} lanjut ke &rarr;</span>
+                                                {(["step6", "repeat_step5"] as const).map(opt => {
+                                                    const currentLead = i === 0 ? step5Button1LeadsTo : step5Button2LeadsTo;
+                                                    const setter = i === 0 ? setStep5Button1LeadsTo : setStep5Button2LeadsTo;
+                                                    return (
+                                                        <button key={opt} type="button"
+                                                            onClick={() => setter(opt)}
+                                                            className={`text-xs px-2 py-1 rounded border transition-colors ${currentLead === opt ? "bg-primary text-primary-foreground border-primary" : "border-border text-muted-foreground hover:border-primary"}`}>
+                                                            {opt === "step6" ? "Step 6 (final)" : "🔁 Ulangi Step 5"}
+                                                        </button>
+                                                    )
+                                                })}
+                                            </div>
                                         </div>
                                     ))}
                                     {step5Buttons.length < 2 && (

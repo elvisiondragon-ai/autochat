@@ -217,7 +217,18 @@ const DemoPanel = () => {
               toast({ title: "Sukses tersambung ke Facebook", description: "Page Token berhasil disimpan (tidak pernah expired)." });
             } catch (err: any) {
               console.error("[AutoChat] Token save error:", err);
-              toast({ title: "Gagal menyimpan token", description: err.message, variant: "destructive" });
+
+              // Handle specific Postgres unique constraint exception
+              if (err.message && err.message.includes("akun sudah digunakan di")) {
+                toast({
+                  title: "Akun Telah Digunakan",
+                  description: err.message,
+                  variant: "destructive",
+                  duration: 6000
+                });
+              } else {
+                toast({ title: "Gagal menyimpan token", description: err.message, variant: "destructive" });
+              }
             }
           };
           saveToken();
