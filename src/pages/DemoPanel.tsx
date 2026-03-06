@@ -4,7 +4,7 @@ import { Input } from "@/components/ui/input";
 import {
   Zap, LayoutDashboard, FileText, Settings, LogOut, Facebook,
   CheckCircle2, XCircle, RefreshCw, Unplug, ChevronDown, MessageSquare,
-  Instagram, MoreHorizontal, Users, TrendingUp, Crown, Loader2, Lock, Plus, Trash2, Sun, Moon, AlertTriangle
+  Instagram, MoreHorizontal, Users, TrendingUp, Crown, Loader2, Lock, Plus, Trash2, Sun, Moon, AlertTriangle, Home
 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
@@ -456,13 +456,22 @@ const DemoPanel = () => {
     <div className="flex min-h-screen flex-col bg-background">
       {/* ── Mobile Header ───────────────────────────────────────────── */}
       <header className="sticky top-0 z-40 flex h-14 items-center justify-between border-b border-border bg-background/90 px-4 backdrop-blur-xl">
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 cursor-pointer transition-opacity hover:opacity-80" onClick={() => navigate("/")}>
           <img src="/autochat.png" alt="Autochat" className="h-6 w-6 object-contain" />
           <span className="font-display text-base font-bold text-foreground">
             Autochat <span className="text-gradient">El Vision</span>
           </span>
         </div>
         <div className="flex items-center gap-2">
+          {/* Back to Home Button (Red) */}
+          <button
+            onClick={() => navigate("/")}
+            className="flex h-8 items-center gap-1.5 rounded-full bg-destructive px-4 text-xs font-bold text-destructive-foreground hover:bg-destructive/90 transition-colors shadow-sm"
+          >
+            <Home className="h-3.5 w-3.5" />
+            <span className="hidden sm:inline">Beranda</span>
+          </button>
+
           <LanguageSwitcher />
           {/* Theme toggle */}
           <button

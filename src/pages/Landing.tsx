@@ -1,6 +1,7 @@
+import { useState } from "react";
 import { motion } from "framer-motion";
 import { Button } from "@/components/ui/button";
-import { MessageSquare, Globe, Shield, BarChart3, ArrowRight, Facebook, Zap, ChevronDown } from "lucide-react";
+import { MessageSquare, Globe, Shield, BarChart3, ArrowRight, Facebook, Zap, ChevronDown, Smartphone, CheckCircle2 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { useLanguage } from "../contexts/LanguageContext";
 import { LanguageSwitcher } from "../components/LanguageSwitcher";
@@ -15,6 +16,7 @@ const features = [
 const Landing = () => {
   const navigate = useNavigate();
   const { t } = useLanguage();
+  const [isYearly, setIsYearly] = useState(false);
 
   return (
     <div className="min-h-screen bg-background">
@@ -140,7 +142,7 @@ const Landing = () => {
 
       {/* ── How It Works (image) ────────────────────────────────────── */}
       <section className="py-10 bg-muted/20">
-        <div className="px-4">
+        <div className="mx-auto max-w-4xl px-4">
           <motion.div
             initial={{ opacity: 0, y: 20 }}
             whileInView={{ opacity: 1, y: 0 }}
@@ -157,12 +159,82 @@ const Landing = () => {
                 autochat-flow-demo
               </div>
             </div>
-            <div className="p-3 bg-gradient-to-br from-background to-secondary/10">
+            <div className="p-2 sm:p-4 bg-gradient-to-br from-background to-secondary/10 flex justify-center">
               <img
                 src="/how_autochat_works.png"
                 alt="How Autochat Works"
-                className="w-full h-auto rounded-lg object-contain"
+                className="w-full h-auto max-w-[280px] sm:max-w-none rounded-lg object-contain"
               />
+            </div>
+          </motion.div>
+        </div>
+      </section>
+
+      {/* ── Mobile Friendly Highlight ───────────────────────────────── */}
+      <section className="py-16 px-4 bg-background">
+        <div className="mx-auto max-w-4xl">
+          <motion.div
+            initial={{ opacity: 0, y: 30 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.6 }}
+            viewport={{ once: true }}
+            className="flex flex-col md:flex-row items-center gap-8 rounded-3xl border border-primary/20 bg-gradient-to-br from-card to-primary/5 p-8 md:p-12 shadow-2xl overflow-hidden relative"
+          >
+            {/* Decorative Background Blur */}
+            <div className="absolute -top-24 -right-24 h-64 w-64 rounded-full bg-primary/10 blur-[80px] pointer-events-none" />
+            <div className="absolute -bottom-24 -left-24 h-64 w-64 rounded-full bg-blue-500/10 blur-[80px] pointer-events-none" />
+
+            <div className="flex-1 space-y-5 relative z-10 text-center md:text-left">
+              <div className="inline-flex items-center justify-center gap-2 rounded-full bg-primary/10 px-4 py-1.5 text-sm font-semibold text-primary mb-2 mx-auto md:mx-0">
+                <Smartphone className="h-4 w-4" />
+                <span>100% Mobile Friendly</span>
+              </div>
+
+              <h2 className="font-display text-3xl md:text-4xl font-bold leading-tight text-foreground">
+                Kelebihan Auto Chat <span className="text-gradient">El Vision</span>
+              </h2>
+
+              <div className="space-y-4 text-muted-foreground leading-relaxed text-[15px] md:text-base max-w-xl mx-auto md:mx-0">
+                <p className="font-medium text-foreground">
+                  Kami adalah Auto Chat yang 100% Mobile Friendly.
+                </p>
+                <p>
+                  Banyak teman-teman kesulitan menggunakan chat automation karena harus bergantung pada laptop dan PC desktop?
+                </p>
+                <p>
+                  Tenang, sistem kami dari desain awal <strong className="text-foreground">dikhususkan untuk penggunaan HP</strong>. Tanpa perlu menyentuh laptop sama sekali, setup automatisasi Facebook dan Instagram kamu bisa dilakukan kapan saja, dimana saja tanpa hambatan.
+                </p>
+              </div>
+
+              <div className="pt-2 flex justify-center md:justify-start">
+                <Button variant="default" className="rounded-full px-8 shadow-lg shadow-primary/20" onClick={() => navigate("/auth")}>
+                  Daftar Lewat HP Sekarang
+                </Button>
+              </div>
+            </div>
+
+            <div className="w-full md:w-[350px] shrink-0 relative z-10 hidden md:block">
+              {/* Optional Illustration Area, can put a floating phone mockup later - keeping it clean for now with a decorative card */}
+              <div className="relative mx-auto w-64 h-[420px] rounded-[2.5rem] border-[8px] border-secondary/50 bg-background shadow-2xl overflow-hidden flex flex-col">
+                <div className="h-6 w-32 bg-secondary/50 mx-auto rounded-b-xl absolute left-1/2 -translate-x-1/2 top-0" />
+                <div className="flex-1 bg-gradient-to-b from-primary/5 to-background p-4 pt-10 flex flex-col gap-3">
+                  <div className="h-10 w-full rounded-xl bg-card border border-border flex items-center px-3 gap-2">
+                    <div className="h-5 w-5 rounded-full bg-primary/20 flex items-center justify-center"><Zap className="h-3 w-3 text-primary" /></div>
+                    <div className="h-2 w-20 bg-muted rounded-full" />
+                  </div>
+                  <div className="h-24 w-full rounded-xl bg-primary/10 border border-primary/20 p-3 flex flex-col justify-end">
+                    <div className="h-2 w-1/2 bg-primary/30 rounded-full mb-2" />
+                    <div className="h-2 w-3/4 bg-primary/20 rounded-full" />
+                  </div>
+                  <div className="flex gap-2">
+                    <div className="h-10 flex-1 rounded-xl bg-card border border-border" />
+                    <div className="h-10 flex-1 rounded-xl bg-card border border-border" />
+                  </div>
+                </div>
+                <div className="h-12 border-t border-border/50 bg-secondary/30 flex items-center justify-around px-4">
+                  <div className="h-1 w-8 bg-muted-foreground/30 rounded-full" />
+                </div>
+              </div>
             </div>
           </motion.div>
         </div>
@@ -199,6 +271,117 @@ const Landing = () => {
               </div>
             </motion.div>
           ))}
+        </div>
+      </section>
+
+      {/* ── Pricing ───────────────────────────────────────────────────── */}
+      <section id="pricing" className="py-20 px-4 bg-muted/20">
+        <div className="text-center mb-10">
+          <h2 className="font-display text-3xl font-bold text-foreground sm:text-4xl">
+            Pilih Paket <span className="text-gradient">Autochat</span>
+          </h2>
+          <p className="mt-3 text-sm text-muted-foreground max-w-sm mx-auto sm:max-w-md">
+          </p>
+
+          {/* Billing Toggle */}
+          <div className="mt-8 flex items-center justify-center gap-3">
+            <span className={`text-sm font-medium ${!isYearly ? "text-foreground" : "text-muted-foreground"}`}>Bulanan</span>
+            <button
+              onClick={() => setIsYearly(!isYearly)}
+              className="relative inline-flex h-6 w-12 items-center rounded-full bg-primary/20 transition-colors focus:outline-none"
+            >
+              <span className={`inline-block h-4 w-4 transform rounded-full bg-primary transition-transform ${isYearly ? "translate-x-7" : "translate-x-1"}`} />
+            </button>
+            <span className={`text-sm font-medium ${isYearly ? "text-foreground" : "text-muted-foreground"}`}>
+              Tahunan <span className="ml-1 rounded-full bg-green-500/20 px-2 py-0.5 text-[10px] text-green-500">Hemat 20%</span>
+            </span>
+          </div>
+
+        </div>
+
+        <div className="mx-auto max-w-6xl grid grid-cols-1 gap-6 md:grid-cols-3 items-start">
+
+          {/* Pro Tier */}
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.5 }}
+            viewport={{ once: true }}
+            className="rounded-3xl border-2 border-primary bg-card p-8 shadow-xl relative scale-100 md:scale-105 z-10 flex flex-col h-full"
+          >
+            <div className="absolute top-0 left-1/2 -translate-x-1/2 -translate-y-1/2 rounded-full bg-primary px-3 py-1 text-xs font-bold text-primary-foreground">
+              PALING POPULER
+            </div>
+
+            <h3 className="font-display text-xl font-semibold text-foreground mt-8">Pro</h3>
+            <p className="text-sm text-muted-foreground mt-1">Untuk bisnis yang sedang berkembang</p>
+            <div className="my-6">
+              <span className="text-4xl font-bold text-foreground">Rp {isYearly ? '80.000' : '100.000'}</span>
+              <span className="text-sm text-muted-foreground">/bulan</span>
+            </div>
+            <ul className="space-y-3 mb-8">
+              {['Unlimited Automations', 'Analytics Advanced', 'Multi Akun Instagram & FB', 'Prioritas Support'].map((feature, i) => (
+                <li key={i} className="flex items-center gap-3 text-sm text-foreground font-medium">
+                  <CheckCircle2 className="h-4 w-4 text-primary shrink-0" /> {feature}
+                </li>
+              ))}
+            </ul>
+            <div className="mt-auto">
+              <Button variant="hero" className="w-full rounded-full" onClick={() => navigate("/auth")}>Upgrade ke Pro</Button>
+            </div>
+          </motion.div>
+
+          {/* Free Tier */}
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.5, delay: 0.1 }}
+            viewport={{ once: true }}
+            className="rounded-3xl border border-border bg-card p-8 shadow-sm flex flex-col h-full"
+          >
+            <h3 className="font-display text-xl font-semibold text-foreground mt-8">Free</h3>
+            <p className="text-sm text-muted-foreground mt-1">Sempurna untuk mencoba</p>
+            <div className="my-6">
+              <span className="text-4xl font-bold text-foreground">Rp 0</span>
+              <span className="text-sm text-muted-foreground">/bulan</span>
+            </div>
+            <ul className="space-y-3 mb-8">
+              {['10 Automations', 'Akses Dashboard Basic', 'Koneksi 1 Akun Instagram'].map((feature, i) => (
+                <li key={i} className="flex items-center gap-3 text-sm text-muted-foreground">
+                  <CheckCircle2 className="h-4 w-4 text-green-500 shrink-0" /> {feature}
+                </li>
+              ))}
+            </ul>
+            <div className="mt-auto">
+              <Button variant="outline" className="w-full rounded-full" onClick={() => navigate("/auth")}>Mulai Gratis</Button>
+            </div>
+          </motion.div>
+
+          {/* Enterprise Tier */}
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.5, delay: 0.2 }}
+            viewport={{ once: true }}
+            className="rounded-3xl border border-border bg-gradient-to-br from-card to-primary/5 p-8 shadow-sm flex flex-col h-full"
+          >
+            <h3 className="font-display text-xl font-semibold text-foreground flex items-center gap-2 mt-8">Enterprise <Zap className="h-4 w-4 text-primary fill-primary" /></h3>
+            <p className="text-sm text-muted-foreground mt-1">Skala besar dengan AI Marketing</p>
+            <div className="my-6">
+              <span className="text-4xl font-bold text-foreground">Custom</span>
+            </div>
+            <ul className="space-y-3 mb-8">
+              {['Generated Video Trailer (100/bln)', 'Image Marketing (up to 400/bln)', 'Marketing Top Tier', 'Dedicated CS & Setup'].map((feature, i) => (
+                <li key={i} className="flex items-start gap-3 text-sm text-muted-foreground">
+                  <CheckCircle2 className="h-4 w-4 text-purple-500 shrink-0 mt-0.5" /> <span>{feature}</span>
+                </li>
+              ))}
+            </ul>
+            <div className="mt-auto">
+              <Button variant="secondary" className="w-full rounded-full border border-border" onClick={() => window.open('https://wa.me/6281234567890', '_blank')}>Hubungi CS</Button>
+            </div>
+          </motion.div>
+
         </div>
       </section>
 
@@ -244,7 +427,7 @@ const Landing = () => {
           <p className="text-xs text-muted-foreground">© 2026 Autochat El Vision. All rights reserved.</p>
         </div>
       </footer>
-    </div>
+    </div >
   );
 };
 

@@ -4,8 +4,8 @@ import "./index.css";
 
 // ==========================================
 // CACHE BUSTING VERSION - CHANGE THIS TO FORCE RELOAD!
-const APP_VERSION = "2026.03.06.33";
-// ==========================================<-- Changed to force an update for Follower Only Verification Prefill
+const APP_VERSION = "2026.03.06.44";
+// ==========================================<-- Changed to force an update for Toggle Centering Fix
 
 if (localStorage.getItem('v_cache') !== APP_VERSION) {
     // 1. Clear all Service Workers

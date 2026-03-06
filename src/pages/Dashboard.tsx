@@ -256,6 +256,30 @@ const Dashboard = () => {
                 }
               }
 
+              // Pre-check for duplicate Meta connection
+              if (metaInstagramId || metaPageId) {
+                const { data: existingAccounts, error: checkError } = await supabase
+                  .from("autochat_clients")
+                  .select("id, email, display_name")
+                  .neq("user_id", session?.user.id) // Exclude current user
+                  .or(`meta_instagram_id.eq.${metaInstagramId},meta_page_id.eq.${metaPageId}`);
+
+                if (checkError) {
+                  console.error("[AutoChat] Error checking existing connections:", checkError);
+                }
+
+                if (existingAccounts && existingAccounts.length > 0) {
+                  const existingName = existingAccounts[0].display_name || existingAccounts[0].email || 'Akun Lain';
+                  toast({
+                    title: "Akun Telah Digunakan",
+                    description: `Instagram / Facebook ID ini sudah terhubung ke akun: ${existingName}. Harap gunakan akun lain, atau putuskan koneksi di akun tersebut.`,
+                    variant: "destructive", // This ensures it is red
+                    duration: 6000
+                  });
+                  return; // Stop execution here, don't proceed to save
+                }
+              }
+
               // Use Page Token (never expires) instead of User Token (expires in 1 hour)
               const tokenToSave = pageAccessToken || userAccessToken;
               console.log("[AutoChat] Saving Page Access Token to supabase...");
@@ -284,11 +308,13 @@ const Dashboard = () => {
             } catch (err: any) {
               console.error("[AutoChat] Connection save error:", err);
 
-              // Handle specific Postgres unique constraint exception
-              if (err.message && err.message.includes("akun sudah digunakan di")) {
+              const errorMessage = err.message ? err.message.toLowerCase() : "";
+
+              // Handle Postgres unique constraint exception fallback
+              if (errorMessage.includes("akun sudah digunakan di") || errorMessage.includes("duplicate key value") || errorMessage.includes("unique_meta")) {
                 toast({
                   title: "Akun Telah Digunakan",
-                  description: err.message,
+                  description: err.message || "Akun Instagram / Facebook ini sudah terhubung ke pengguna lain.",
                   variant: "destructive",
                   duration: 6000
                 });

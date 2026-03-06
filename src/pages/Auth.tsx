@@ -127,7 +127,10 @@ const AuthPage = () => {
             </div>
 
             <div className="absolute top-0 left-0 right-0 flex items-center justify-between px-4 pt-4 z-10">
-                <button onClick={() => navigate("/")} className="flex items-center gap-2 rounded-full border border-border/50 bg-background/50 px-4 py-2 text-sm font-medium text-muted-foreground shadow-sm backdrop-blur-md transition-colors hover:bg-accent hover:text-accent-foreground cursor-pointer">
+                <button
+                    onClick={() => navigate("/")}
+                    className="flex items-center gap-2 rounded-full border border-destructive/50 bg-destructive/90 hover:bg-destructive px-4 py-2 text-sm font-bold text-destructive-foreground shadow-sm backdrop-blur-md transition-colors cursor-pointer"
+                >
                     <ArrowLeft className="h-4 w-4" />
                     <span className="hidden sm:inline">{t('nav.back')}</span>
                 </button>
