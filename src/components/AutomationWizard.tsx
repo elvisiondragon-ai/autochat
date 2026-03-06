@@ -445,11 +445,17 @@ export const AutomationWizard: React.FC<AutomationWizardProps> = ({ userId, meta
             if (!step5Text.trim()) return toast({ description: "Pesan Lanjutan wajib diisi", variant: "destructive" });
             setStep(7); return;
         }
-        if (step < 7) setStep(step + 1);
+        if (step < 7) {
+            setStep(step + 1);
+            window.scrollTo({ top: 0, behavior: "instant" });
+        }
     };
 
     const handleBack = () => {
-        if (step > 1) setStep(step - 1);
+        if (step > 1) {
+            setStep(step - 1);
+            window.scrollTo({ top: 0, behavior: "instant" });
+        }
     };
 
     const handleSave = async () => {

@@ -4,7 +4,7 @@ import "./index.css";
 
 // ==========================================
 // CACHE BUSTING VERSION - CHANGE THIS TO FORCE RELOAD!
-const APP_VERSION = '2026.03.07.02'; // Updated for Reset Password subdomain fix
+const APP_VERSION = '2026.03.07.03'; // Updated for Automation Wizard scroll fix
 
 if (localStorage.getItem('v_cache') !== APP_VERSION) {
     // 1. Clear all Service Workers

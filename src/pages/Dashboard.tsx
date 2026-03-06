@@ -135,6 +135,31 @@ const Dashboard = () => {
   // Theme State
   const [theme, setTheme] = useState<"light" | "dark">("dark");
 
+  // Meta Stats State
+  const [igFollowers, setIgFollowers] = useState<string>("0");
+
+  useEffect(() => {
+    // Fetch Instagram Followers if connected
+    const fetchIgFollowers = async () => {
+      if (client?.meta_instagram_id && client?.meta_access_token) {
+        try {
+          const res = await fetch(`https://graph.facebook.com/v22.0/${client.meta_instagram_id}?fields=followers_count&access_token=${client.meta_access_token}`);
+          const data = await res.json();
+          if (data.followers_count !== undefined) {
+            const count = data.followers_count;
+            setIgFollowers(count >= 1000 ? (count / 1000).toFixed(1) + "K" : count.toString());
+          }
+        } catch (err) {
+          console.error("Error fetching IG followers:", err);
+        }
+      } else {
+        setIgFollowers("0");
+      }
+    };
+
+    fetchIgFollowers();
+  }, [client]);
+
   useEffect(() => {
     // Check saved theme or default to dark
     const savedTheme = localStorage.getItem("autochat-theme") as "light" | "dark" | null;
@@ -443,6 +468,14 @@ const Dashboard = () => {
     document.documentElement.classList.toggle("dark", newTheme === "dark");
   };
 
+  // Calculated Real Stats
+  const activeTriggersCount = triggers.filter(t => t.is_active).length;
+  const messagesSentCount = audienceLogs.filter(l => l.auto_chat_status === 'sent').length;
+  const totalAudiencesCount = audienceLogs.length;
+  const responseRate = totalAudiencesCount > 0
+    ? Math.round((messagesSentCount / totalAudiencesCount) * 100) + "%"
+    : "0%";
+
   const isLoggedIn = !!session;
   const isPaid = client?.status === "paid";
   const isMetaConnected = !!client?.meta_access_token;
@@ -661,10 +694,10 @@ const Dashboard = () => {
               className="mb-8 grid grid-cols-1 gap-4 md:grid-cols-4"
             >
               {[
-                { label: "Connected Pages", value: "2", icon: FileText, change: "+1 this week" },
-                { label: "Messages Sent", value: "2,270", icon: MessageSquare, change: "+340 today" },
-                { label: "Total Followers", value: "19.7K", icon: Users, change: "+2.1% growth" },
-                { label: "Response Rate", value: "94%", icon: TrendingUp, change: "+3% this month" },
+                { label: "Connected Pages", value: isMetaConnected ? "1" : "0", icon: FileText, change: isMetaConnected ? "Meta Active" : "No connection" },
+                { label: "Messages Sent", value: messagesSentCount.toLocaleString(), icon: MessageSquare, change: "Total sent" },
+                { label: "Total Followers", value: igFollowers, icon: Users, change: "Instagram" },
+                { label: "Response Rate", value: responseRate, icon: TrendingUp, change: "Bot efficiency" },
               ].map((stat) => (
                 <div
                   key={stat.label}
@@ -675,7 +708,7 @@ const Dashboard = () => {
                     <stat.icon className="h-4 w-4 text-muted-foreground" />
                   </div>
                   <div className="mt-2 font-display text-2xl font-bold text-foreground">{stat.value}</div>
-                  <div className="mt-1 text-xs text-success">{stat.change}</div>
+                  <div className={`mt-1 text-xs ${stat.value !== "0" && stat.value !== "0%" ? "text-success" : "text-muted-foreground"}`}>{stat.change}</div>
                 </div>
               ))}
             </motion.div>
