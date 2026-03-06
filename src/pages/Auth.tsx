@@ -106,8 +106,11 @@ const AuthPage = () => {
         setLoading(true);
         try {
             const email = forgotEmail.toLowerCase().trim();
-            const { error } = await supabase.auth.resetPasswordForEmail(email, {
-                redirectTo: `${window.location.origin}/auth?mode=reset`
+            const { error } = await supabase.functions.invoke('send-reset-password-email', {
+                body: {
+                    email,
+                    redirectTo: `${window.location.origin}/reset-password`
+                }
             });
             if (error) throw error;
             setForgotSent(true);

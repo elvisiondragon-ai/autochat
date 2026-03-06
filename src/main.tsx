@@ -4,8 +4,7 @@ import "./index.css";
 
 // ==========================================
 // CACHE BUSTING VERSION - CHANGE THIS TO FORCE RELOAD!
-const APP_VERSION = "2026.03.06.44";
-// ==========================================<-- Changed to force an update for Toggle Centering Fix
+const APP_VERSION = '2026.03.07.02'; // Updated for Reset Password subdomain fix
 
 if (localStorage.getItem('v_cache') !== APP_VERSION) {
     // 1. Clear all Service Workers
