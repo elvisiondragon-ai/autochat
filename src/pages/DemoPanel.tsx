@@ -179,18 +179,42 @@ const DemoPanel = () => {
 
           const saveToken = async () => {
             try {
-              const accessToken = response.authResponse.accessToken;
-              console.log("[AutoChat] Saving accessToken to supabase...");
+              const userAccessToken = response.authResponse.accessToken;
+              console.log("[AutoChat] Fetching Pages with Page Access Tokens...");
+
+              // Fetch user's pages WITH their Page Access Tokens
+              const pbRes = await fetch(`https://graph.facebook.com/v22.0/me/accounts?fields=id,name,access_token,instagram_business_account&access_token=${userAccessToken}`);
+              const pbData = await pbRes.json();
+
+              let metaPageId = null;
+              let metaInstagramId = null;
+              let pageAccessToken = null; // Never expires!
+
+              if (pbData.data && pbData.data.length > 0) {
+                const pageWithIg = pbData.data.find((p: any) => p.instagram_business_account?.id);
+                if (pageWithIg) {
+                  metaPageId = pageWithIg.id;
+                  metaInstagramId = pageWithIg.instagram_business_account.id;
+                  pageAccessToken = pageWithIg.access_token;
+                  console.log(`[AutoChat] Got Page Token (never expires): ${pageAccessToken?.substring(0, 10)}...`);
+                }
+              }
+
+              const tokenToSave = pageAccessToken || userAccessToken;
               const { error } = await supabase
                 .from("autochat_clients")
-                .update({ meta_access_token: accessToken })
+                .update({
+                  meta_access_token: tokenToSave,
+                  meta_page_id: metaPageId,
+                  meta_instagram_id: metaInstagramId
+                })
                 .eq("user_id", session?.user.id);
 
               if (error) throw error;
 
-              console.log("[AutoChat] Token saved successfully in DB");
-              setClient(prev => prev ? { ...prev, meta_access_token: accessToken } : null);
-              toast({ title: "Sukses tersambung ke Facebook", description: "Meta Token berhasil disimpan." });
+              console.log("[AutoChat] Page Access Token saved successfully (never expires!)");
+              setClient(prev => prev ? { ...prev, meta_access_token: tokenToSave, meta_page_id: metaPageId, meta_instagram_id: metaInstagramId } : null);
+              toast({ title: "Sukses tersambung ke Facebook", description: "Page Token berhasil disimpan (tidak pernah expired)." });
             } catch (err: any) {
               console.error("[AutoChat] Token save error:", err);
               toast({ title: "Gagal menyimpan token", description: err.message, variant: "destructive" });

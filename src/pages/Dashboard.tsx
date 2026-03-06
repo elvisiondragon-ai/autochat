@@ -41,14 +41,33 @@ const bottomTabs = [
 
 interface AutochatTrigger {
   id: string;
+  user_id?: string;
   keyword: string;
-  comment_reply?: string;
-  reply_message: string;
+  is_any_word?: boolean;
   is_active: boolean;
-  button_url?: string;
-  button_text?: string;
-  button_url_2?: string;
-  button_text_2?: string;
+  trigger_source?: string;
+  target_post?: string;
+  comment_reply?: string;
+  comment_reply_2?: string;
+  comment_reply_3?: string;
+
+  step4_text?: string;
+  step4_button_type?: "quick_reply" | "web_url";
+  step4_button1_text?: string;
+  step4_button1_url?: string;
+  step4_button2_text?: string;
+  step4_button2_url?: string;
+
+  step5_text?: string;
+  step5_button_type?: "quick_reply" | "web_url";
+  step5_button1_text?: string;
+  step5_button1_url?: string;
+  step5_button2_text?: string;
+  step5_button2_url?: string;
+
+  step6_text?: string;
+  step6_button_text?: string;
+  step6_button_url?: string;
 }
 
 interface AutochatClient {
@@ -93,15 +112,7 @@ const Dashboard = () => {
   // UI State
   const [activeTab, setActiveTab] = useState("dashboard");
   const [isAddingTrigger, setIsAddingTrigger] = useState(false);
-  const [newTrigger, setNewTrigger] = useState<Partial<AutochatTrigger>>({
-    keyword: "",
-    comment_reply: "",
-    reply_message: "",
-    button_text: "",
-    button_url: "",
-    button_text_2: "",
-    button_url_2: ""
-  });
+  const [editingTrigger, setEditingTrigger] = useState<AutochatTrigger | null>(null);
   const [isSaving, setIsSaving] = useState(false);
 
   // Settings State
@@ -215,15 +226,16 @@ const Dashboard = () => {
 
           const saveToken = async () => {
             try {
-              const accessToken = response.authResponse.accessToken;
-              console.log("[AutoChat] Fetching IG Account from Facebook Pages...");
+              const userAccessToken = response.authResponse.accessToken;
+              console.log("[AutoChat] Fetching Pages with Page Access Tokens...");
 
-              // Fetch user's pages and check for connected Instagram account
-              const pbRes = await fetch(`https://graph.facebook.com/v22.0/me/accounts?fields=id,name,instagram_business_account&access_token=${accessToken}`);
+              // Fetch user's pages WITH their Page Access Tokens (access_token field)
+              const pbRes = await fetch(`https://graph.facebook.com/v22.0/me/accounts?fields=id,name,access_token,instagram_business_account&access_token=${userAccessToken}`);
               const pbData = await pbRes.json();
 
               let metaPageId = null;
               let metaInstagramId = null;
+              let pageAccessToken = null; // This is the token that NEVER expires
 
               if (pbData.data && pbData.data.length > 0) {
                 // Find first page with an associated IG account
@@ -231,7 +243,9 @@ const Dashboard = () => {
                 if (pageWithIg) {
                   metaPageId = pageWithIg.id;
                   metaInstagramId = pageWithIg.instagram_business_account.id;
+                  pageAccessToken = pageWithIg.access_token; // Page Token = never expires!
                   console.log(`[AutoChat] Found IG Account: ${metaInstagramId} on Page: ${metaPageId}`);
+                  console.log(`[AutoChat] Got Page Access Token (never expires): ${pageAccessToken?.substring(0, 10)}...`);
                 } else {
                   console.warn("[AutoChat] No Instagram Business Account found on any connected Facebook Pages.");
                   toast({
@@ -242,11 +256,13 @@ const Dashboard = () => {
                 }
               }
 
-              console.log("[AutoChat] Saving credentials to supabase...");
+              // Use Page Token (never expires) instead of User Token (expires in 1 hour)
+              const tokenToSave = pageAccessToken || userAccessToken;
+              console.log("[AutoChat] Saving Page Access Token to supabase...");
               const { error } = await supabase
                 .from("autochat_clients")
                 .update({
-                  meta_access_token: accessToken,
+                  meta_access_token: tokenToSave,
                   meta_page_id: metaPageId,
                   meta_instagram_id: metaInstagramId
                 })
@@ -254,10 +270,10 @@ const Dashboard = () => {
 
               if (error) throw error;
 
-              console.log("[AutoChat] Credentials saved successfully in DB");
+              console.log("[AutoChat] Page Access Token saved successfully in DB (never expires!)");
               setClient(prev => prev ? {
                 ...prev,
-                meta_access_token: accessToken,
+                meta_access_token: tokenToSave,
                 meta_page_id: metaPageId,
                 meta_instagram_id: metaInstagramId
               } : null);
@@ -303,42 +319,6 @@ const Dashboard = () => {
       .eq("user_id", userId)
       .order("created_at", { ascending: false });
     if (tData) setTriggers(tData);
-  };
-
-  const handleSaveTrigger = async () => {
-    if (!session?.user) return requireLogin();
-    if (!newTrigger.keyword || !newTrigger.reply_message) {
-      toast({ title: "Validasi Gagal", description: "Keyword dan Isi Balasan DM wajib diisi.", variant: "destructive" });
-      return;
-    }
-
-    setIsSaving(true);
-    try {
-      const payload = {
-        user_id: session.user.id,
-        keyword: newTrigger.keyword,
-        comment_reply: newTrigger.comment_reply || null,
-        reply_message: newTrigger.reply_message,
-        button_text: newTrigger.button_text || null,
-        button_url: newTrigger.button_url || null,
-        button_text_2: newTrigger.button_text_2 || null,
-        button_url_2: newTrigger.button_url_2 || null,
-        is_active: true
-      };
-
-      const { error } = await supabase.from("autochat_triggers").insert(payload);
-      if (error) throw error;
-
-      toast({ title: "Trigger Berhasil Disimpan", description: `Keyword "${newTrigger.keyword}" aktif.` });
-      setNewTrigger({ keyword: "", comment_reply: "", reply_message: "", button_text: "", button_url: "", button_text_2: "", button_url_2: "" });
-      setIsAddingTrigger(false);
-      fetchTriggers(session.user.id);
-
-    } catch (err: any) {
-      toast({ title: "Gagal menyimpan trigger", description: err.message, variant: "destructive" });
-    } finally {
-      setIsSaving(false);
-    }
   };
 
   const handleDeleteTrigger = async (id: string) => {
@@ -954,25 +934,27 @@ const Dashboard = () => {
                 <Button
                   size="sm"
                   className="gap-2"
-                  onClick={isLoggedIn ? () => setIsAddingTrigger(!isAddingTrigger) : requireLogin}
-                  variant={isAddingTrigger ? "outline" : "hero"}
+                  onClick={isLoggedIn ? () => { setEditingTrigger(null); setIsAddingTrigger(!isAddingTrigger); } : requireLogin}
+                  variant={(isAddingTrigger || editingTrigger) ? "outline" : "hero"}
                 >
-                  {isAddingTrigger ? <XCircle className="h-4 w-4" /> : <Plus className="h-4 w-4" />}
-                  {isAddingTrigger ? "Batal" : "Tambah Trigger"}
+                  {(isAddingTrigger || editingTrigger) ? <XCircle className="h-4 w-4" /> : <Plus className="h-4 w-4" />}
+                  {(isAddingTrigger || editingTrigger) ? "Batal" : "Tambah Trigger"}
                 </Button>
               </div>
 
-              {/* ADD TRIGGER WIZARD */}
-              {isAddingTrigger && session?.user && (
+              {/* ADD/EDIT TRIGGER WIZARD */}
+              {(isAddingTrigger || editingTrigger) && session?.user && (
                 <AutomationWizard
                   userId={session.user.id}
                   metaInstagramId={client?.meta_instagram_id}
                   metaAccessToken={client?.meta_access_token}
+                  initialData={editingTrigger}
                   onSuccess={() => {
                     setIsAddingTrigger(false);
+                    setEditingTrigger(null);
                     fetchTriggers(session.user.id);
                   }}
-                  onCancel={() => setIsAddingTrigger(false)}
+                  onCancel={() => { setIsAddingTrigger(false); setEditingTrigger(null); }}
                 />
               )}
 
@@ -1000,22 +982,28 @@ const Dashboard = () => {
                             </div>
                           )}
                           <p className="line-clamp-2 text-sm text-foreground">
-                            {trigger.reply_message}
+                            <strong>Step 4:</strong> {trigger.step4_text || "(Tidak ada pesan DM)"}
                           </p>
-                          {trigger.button_url && (
+                          {trigger.step4_button1_text && (
                             <div className="mt-1 flex flex-col gap-1">
                               <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
-                                <span className="rounded bg-secondary px-1.5 py-0.5 whitespace-nowrap">Tombol 1: {trigger.button_text}</span>
-                                <span className="truncate max-w-[200px] text-primary">{trigger.button_url}</span>
+                                <span className="rounded bg-secondary px-1.5 py-0.5 whitespace-nowrap">{trigger.step4_button_type === 'web_url' ? 'URL' : 'Quick Reply'}: {trigger.step4_button1_text}</span>
+                                {trigger.step4_button1_url && <span className="truncate max-w-[150px] text-primary">{trigger.step4_button1_url}</span>}
                               </div>
-                              {trigger.button_url_2 && (
+                              {trigger.step4_button2_text && (
                                 <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
-                                  <span className="rounded bg-secondary px-1.5 py-0.5 whitespace-nowrap">Tombol 2: {trigger.button_text_2}</span>
-                                  <span className="truncate max-w-[200px] text-primary">{trigger.button_url_2}</span>
+                                  <span className="rounded bg-secondary px-1.5 py-0.5 whitespace-nowrap">{trigger.step4_button_type === 'web_url' ? 'URL' : 'Quick Reply'}: {trigger.step4_button2_text}</span>
+                                  {trigger.step4_button2_url && <span className="truncate max-w-[150px] text-primary">{trigger.step4_button2_url}</span>}
                                 </div>
                               )}
                             </div>
-                          )}                        </div>
+                          )}
+                          {trigger.step5_text && (
+                            <p className="line-clamp-2 text-sm text-foreground mt-1">
+                              <strong>Step 5:</strong> {trigger.step5_text}
+                            </p>
+                          )}
+                        </div>
                         <div className="col-span-2">
                           {trigger.is_active ? (
                             <span className="flex w-max items-center gap-1.5 rounded-full bg-success/10 px-2.5 py-0.5 text-xs font-medium text-success">
@@ -1029,7 +1017,10 @@ const Dashboard = () => {
                             </span>
                           )}
                         </div>
-                        <div className="col-span-1 flex justify-end">
+                        <div className="col-span-1 flex justify-end gap-1">
+                          <Button variant="ghost" size="icon" className="h-8 w-8 text-primary hover:bg-primary/10 hover:text-primary" onClick={() => { setEditingTrigger(trigger); setIsAddingTrigger(false); }}>
+                            <Settings className="h-4 w-4" />
+                          </Button>
                           <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive hover:bg-destructive/10 hover:text-destructive" onClick={() => handleDeleteTrigger(trigger.id)}>
                             <Trash2 className="h-4 w-4" />
                           </Button>

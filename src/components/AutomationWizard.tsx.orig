@@ -9,7 +9,6 @@ export interface AutomationWizardProps {
     userId: string;
     metaInstagramId?: string | null;
     metaAccessToken?: string | null;
-    initialData?: any; // To support editing existing triggers
     onSuccess: () => void;
     onCancel: () => void;
 }
@@ -26,13 +25,26 @@ interface IgMedia {
 }
 
 // ── Live Phone Mockup Preview ─────────────────────────────────────────────────
-const PhonePreview = ({ step, flowType, keyword, isAnyWord, commentReplies, enableCommentReply, triggerSource, selectedPost, step4Text, step4BtnType, step4Buttons, step5Text, step5BtnType, step5Buttons, step6Text, step6UrlTitle, step6UrlLink }: {
-    step: number; flowType: "direct" | "sequence"; keyword: string; isAnyWord: boolean; commentReplies: string[]; enableCommentReply: boolean; triggerSource: string; selectedPost?: IgMedia | null;
-    step4Text: string; step4BtnType: string; step4Buttons: any[];
-    step5Text: string; step5BtnType: string; step5Buttons: any[];
-    step6Text: string; step6UrlTitle: string; step6UrlLink: string;
+const PhonePreview = ({ step, keyword, isAnyWord, commentReplies, enableCommentReply, dmReply, triggerSource, step5Type, openingDmText, quickReplyButtons, directUrl, selectedPost, buttonText, buttonUrl }: {
+    step: number;
+    keyword: string;
+    isAnyWord: boolean;
+    commentReplies: string[];
+    enableCommentReply: boolean;
+    dmReply: string;
+    triggerSource: string;
+    step5Type: string;
+    openingDmText: string;
+    quickReplyButtons: string[];
+    directUrl: string;
+    selectedPost?: IgMedia | null;
+    buttonText: string;
+    buttonUrl: string;
 }) => {
     const isDM = triggerSource === "chat_ig_fb" || step >= 4;
+    const showDMPreview = step >= 5 && dmReply.trim() !== "";
+    const showOpeningDm = step >= 4 && step5Type === "opening_dm" && openingDmText.trim() !== "";
+    const showFollowCheck = step >= 4 && step5Type === "follow_check";
     const showCommentPreview = step >= 3 && triggerSource === "komentar_ig_fb" && enableCommentReply && commentReplies[0]?.trim() !== "";
     const showKeyword = step >= 3 && (isAnyWord || keyword.trim() !== "");
     const postThumbnail = selectedPost?.thumbnail_url || selectedPost?.media_url;
@@ -41,7 +53,7 @@ const PhonePreview = ({ step, flowType, keyword, isAnyWord, commentReplies, enab
 
     useEffect(() => {
         messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
-    }, [step, step4Text, step5Text, step6Text]);
+    }, [step, dmReply, openingDmText, step5Type]);
 
     return (
         <div className="flex flex-col items-center justify-center h-full">
@@ -119,108 +131,80 @@ const PhonePreview = ({ step, flowType, keyword, isAnyWord, commentReplies, enab
                                         </div>
                                     </motion.div>
                                 )}
-                                {/* Step 4 View: Choice UI */}
-                                {step === 4 && (
-                                    <motion.div initial={{ opacity: 0, scale: 0.9 }} animate={{ opacity: 1, scale: 1 }} className="flex flex-col gap-2 mt-4 items-center">
-                                        <div className="w-full p-2 rounded-xl bg-[#2c2c2e] border border-[#3a3a3c] text-center">
-                                            <span className="text-white text-[10px] font-bold">Pilih Aliran Chat</span>
-                                        </div>
-                                        <div className={`w-full p-3 rounded-xl border-2 transition-all ${flowType === "direct" ? "border-primary bg-primary/10" : "border-[#3a3a3c] bg-transparent"}`}>
-                                            <span className="text-white text-[9px] font-bold block">A. Simpel Link</span>
-                                            <span className="text-[#adadad] text-[7px]">Satu pesan + URL</span>
-                                        </div>
-                                        <div className={`w-full p-3 rounded-xl border-2 transition-all ${flowType === "sequence" ? "border-primary bg-primary/10" : "border-[#3a3a3c] bg-transparent"}`}>
-                                            <span className="text-white text-[9px] font-bold block">B. Sequence</span>
-                                            <span className="text-[#adadad] text-[7px]">Flow interaktif</span>
-                                        </div>
-                                    </motion.div>
-                                )}
-
-                                {/* Step 5 View (Opening DM) */}
-                                {step >= 5 && step4Text.trim() && (
+                                {/* Opening DM Preview */}
+                                {showOpeningDm && (
                                     <>
                                         <motion.div initial={{ opacity: 0, x: -20 }} animate={{ opacity: 1, x: 0 }} className="flex items-end gap-1 mt-2">
                                             <div className="h-5 w-5 rounded-full bg-gradient-to-tr from-[#f9ce34] via-[#ee2a7b] to-[#6228d7] shrink-0 flex items-center justify-center text-[6px] font-bold text-white">🤖</div>
                                             <div className="max-w-[140px] rounded-2xl rounded-bl-sm bg-[#2c2c2e] px-3 py-1.5 break-words">
-                                                <span className="text-white text-[9px]">{step4Text}</span>
-                                                {(flowType === "direct" || step4BtnType === "web_url") && step4Buttons.filter(b => b.title.trim()).map((btn, i) => (
-                                                    <div key={i} className="mt-1 rounded-lg bg-[#0095f6] px-3 py-1.5 text-center">
-                                                        <span className="text-[7px] text-white font-bold">{btn.title}</span>
-                                                    </div>
-                                                ))}
+                                                <span className="text-white text-[9px]">{openingDmText}</span>
                                             </div>
                                         </motion.div>
-                                        {flowType === "sequence" && step4BtnType === "quick_reply" && (
-                                            <div className="pl-6 flex flex-wrap gap-1 mt-1">
-                                                {step4Buttons.filter(b => b.title.trim()).map((btn, i) => (
-                                                    <div key={i} className="rounded-full border border-[#3a3a3c] px-3 py-1 text-center bg-transparent">
-                                                        <span className="text-[#0095f6] text-[9px] font-semibold">{btn.title}</span>
-                                                    </div>
-                                                ))}
-                                            </div>
-                                        )}
-                                    </>
-                                )}
-
-                                {/* Step 6 User Click Simulation */}
-                                {step >= 6 && flowType === "sequence" && step4BtnType === "quick_reply" && step4Buttons[0]?.title && (
-                                    <motion.div initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} className="flex justify-end mt-2">
-                                        <div className="max-w-[120px] rounded-2xl rounded-br-sm bg-[#0095f6] px-3 py-1.5">
-                                            <span className="text-white text-[9px]">{step4Buttons[0].title}</span>
-                                        </div>
-                                    </motion.div>
-                                )}
-
-                                {/* Step 6 View (Follow-up DM) */}
-                                {step >= 6 && flowType === "sequence" && step5Text.trim() && (
-                                    <>
-                                        <motion.div initial={{ opacity: 0, x: -20 }} animate={{ opacity: 1, x: 0 }} className="flex items-end gap-1 mt-2">
-                                            <div className="h-5 w-5 rounded-full bg-gradient-to-tr from-[#f9ce34] via-[#ee2a7b] to-[#6228d7] shrink-0 flex items-center justify-center text-[6px] font-bold text-white">🤖</div>
-                                            <div className="max-w-[140px] rounded-2xl rounded-bl-sm bg-[#2c2c2e] px-3 py-1.5 break-words">
-                                                <span className="text-white text-[9px]">{step5Text}</span>
-                                                {step5BtnType === "web_url" && step5Buttons.filter(b => b.title.trim()).map((btn, i) => (
-                                                    <div key={i} className="mt-1 rounded-lg bg-[#0095f6] px-3 py-1.5 text-center">
-                                                        <span className="text-[7px] text-white font-bold">{btn.title}</span>
-                                                    </div>
-                                                ))}
-                                            </div>
-                                        </motion.div>
-                                        {step5BtnType === "quick_reply" && (
-                                            <div className="pl-6 flex flex-wrap gap-1 mt-1">
-                                                {step5Buttons.filter(b => b.title.trim()).map((btn, i) => (
-                                                    <div key={i} className="rounded-full border border-[#3a3a3c] px-3 py-1 text-center bg-transparent">
-                                                        <span className="text-[#0095f6] text-[9px] font-semibold">{btn.title}</span>
-                                                    </div>
-                                                ))}
-                                            </div>
-                                        )}
-                                    </>
-                                )}
-
-                                {/* Step 7 User Click Simulation */}
-                                {step >= 7 && flowType === "sequence" && step5BtnType === "quick_reply" && step5Buttons[0]?.title && (
-                                    <motion.div initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} className="flex justify-end mt-2">
-                                        <div className="max-w-[120px] rounded-2xl rounded-br-sm bg-[#0095f6] px-3 py-1.5">
-                                            <span className="text-white text-[9px]">{step5Buttons[0].title}</span>
-                                        </div>
-                                    </motion.div>
-                                )}
-
-                                {/* Step 7 View (Final Ending) */}
-                                {step >= 7 && flowType === "sequence" && step6Text.trim() && (
-                                    <motion.div initial={{ opacity: 0, x: -20 }} animate={{ opacity: 1, x: 0 }} className="flex items-end gap-1 mt-2">
-                                        <div className="h-5 w-5 rounded-full bg-gradient-to-tr from-[#f9ce34] via-[#ee2a7b] to-[#6228d7] shrink-0 flex items-center justify-center text-[6px] font-bold text-white">🤖</div>
-                                        <div className="max-w-[140px] rounded-2xl rounded-bl-sm bg-[#2c2c2e] px-3 py-1.5 break-words">
-                                            <span className="text-white text-[9px]">{step6Text}</span>
-                                            {step6UrlTitle.trim() && (
-                                                <div className="mt-1 rounded-lg bg-[#0095f6] px-3 py-1.5 text-center">
-                                                    <span className="text-[9px] text-white font-bold">{step6UrlTitle}</span>
+                                        <div className="pl-6 flex flex-wrap gap-1 mt-1">
+                                            {quickReplyButtons.filter(b => b.trim()).map((btn, i) => (
+                                                <div key={i} className="rounded-full border border-[#3a3a3c] px-3 py-1 text-center bg-transparent">
+                                                    <span className="text-[#0095f6] text-[9px] font-semibold">{btn}</span>
                                                 </div>
-                                            )}
+                                            ))}
+                                        </div>
+                                    </>
+                                )}
+
+                                {/* Follow Check Preview */}
+                                {showFollowCheck && (
+                                    <>
+                                        <motion.div initial={{ opacity: 0, x: -20 }} animate={{ opacity: 1, x: 0 }} className="flex items-end gap-1 mt-2">
+                                            <div className="h-5 w-5 rounded-full bg-gradient-to-tr from-[#f9ce34] via-[#ee2a7b] to-[#6228d7] shrink-0 flex items-center justify-center text-[6px] font-bold text-white">🤖</div>
+                                            <div className="max-w-[140px] rounded-2xl rounded-bl-sm bg-[#2c2c2e] px-3 py-1.5">
+                                                <span className="text-white text-[9px]">Follow aku dulu dong biar ku kasih Link Nya! 🔒</span>
+                                            </div>
+                                        </motion.div>
+                                        <div className="pl-6 flex gap-1 mt-1">
+                                            <div className="rounded-full border border-[#3a3a3c] px-3 py-1 text-center">
+                                                <span className="text-[#0095f6] text-[9px] font-semibold">✅ Udah Follow</span>
+                                            </div>
+                                            <div className="rounded-full border border-[#3a3a3c] px-3 py-1 text-center">
+                                                <span className="text-[#0095f6] text-[9px] font-semibold">❌ Belum</span>
+                                            </div>
+                                        </div>
+                                    </>
+                                )}
+
+                                {showDMPreview && step5Type === "follow_check" && (
+                                    <motion.div initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: 0.1 }} className="flex justify-end mt-2">
+                                        <div className="max-w-[120px] rounded-2xl rounded-br-sm bg-[#0095f6] px-3 py-1.5">
+                                            <span className="text-white text-[9px]">✅ Udah Follow</span>
                                         </div>
                                     </motion.div>
                                 )}
 
+                                {showDMPreview && step5Type === "opening_dm" && quickReplyButtons[0]?.trim() && (
+                                    <motion.div initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: 0.1 }} className="flex justify-end mt-2">
+                                        <div className="max-w-[120px] rounded-2xl rounded-br-sm bg-[#0095f6] px-3 py-1.5">
+                                            <span className="text-white text-[9px]">{quickReplyButtons[0]}</span>
+                                        </div>
+                                    </motion.div>
+                                )}
+
+                                {showDMPreview && (
+                                    <motion.div initial={{ opacity: 0, x: -20 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: 0.2 }} className="flex items-end gap-1 mt-2">
+                                        <div className="h-5 w-5 rounded-full bg-gradient-to-tr from-[#f9ce34] via-[#ee2a7b] to-[#6228d7] shrink-0 flex items-center justify-center text-[6px] font-bold text-white">🤖</div>
+                                        <div className="max-w-[140px]">
+                                            <div className="rounded-2xl rounded-bl-sm bg-[#2c2c2e] overflow-hidden">
+                                                <div className="px-3 py-1.5">
+                                                    <span className="text-white text-[9px]">{dmReply}</span>
+                                                </div>
+                                                {buttonText.trim() && (
+                                                    <div className="px-2 pb-2 pt-1">
+                                                        <div className="rounded-lg bg-[#0095f6] px-3 py-1.5 text-center">
+                                                            <span className="text-[9px] text-white font-bold">{buttonText}</span>
+                                                        </div>
+                                                    </div>
+                                                )}
+                                            </div>
+                                        </div>
+                                    </motion.div>
+                                )}
                                 <div ref={messagesEndRef} className="h-4 w-full shrink-0" />
                             </>
                         )}
@@ -242,10 +226,10 @@ const PhonePreview = ({ step, flowType, keyword, isAnyWord, commentReplies, enab
                     {step === 1 && "Pilih sumber trigger"}
                     {step === 2 && "Pilih target postingan"}
                     {step === 3 && (keyword ? `Keyword: "${keyword}"` : "Ketik keyword...")}
-                    {step === 4 && "Pilih Alur Chat"}
-                    {step === 5 && (flowType === "direct" ? "Preview Pesan & Link" : "Langkah 1 Preview")}
-                    {step === 6 && "Langkah 2 Preview"}
-                    {step === 7 && "Langkah 3 Preview"}
+                    {step === 4 && "Balasan di komentar"}
+                    {step === 5 && "Basa Basi"}
+                    {step === 6 && "Cek Follow Dulu?"}
+                    {step === 7 && "Preview DM & Link"}
                 </p>
                 <p className="text-[10px] text-muted-foreground/60 mt-0.5">Live Preview</p>
             </div>
@@ -255,7 +239,7 @@ const PhonePreview = ({ step, flowType, keyword, isAnyWord, commentReplies, enab
 
 
 // ── Main Wizard Component ─────────────────────────────────────────────────────
-export const AutomationWizard: React.FC<AutomationWizardProps> = ({ userId, metaInstagramId, metaAccessToken, initialData, onSuccess, onCancel }) => {
+export const AutomationWizard: React.FC<AutomationWizardProps> = ({ userId, metaInstagramId, metaAccessToken, onSuccess, onCancel }) => {
     const { toast } = useToast();
 
     const [step, setStep] = useState(1);
@@ -272,74 +256,28 @@ export const AutomationWizard: React.FC<AutomationWizardProps> = ({ userId, meta
     // Comment Reply State
     const [enableCommentReply, setEnableCommentReply] = useState<boolean>(false);
     const [commentReplies, setCommentReplies] = useState<string[]>([""]); // Max 3
-    // --- NEW BRANCHING FLOW (7 STEPS) ---
-    const [flowType, setFlowType] = useState<"direct" | "sequence">("sequence");
+    // DM State
+    const [dmReply, setDmReply] = useState<string>("");
+    const [sequenceType, setSequenceType] = useState<string>("");
+    const [buttonType, setButtonType] = useState<"web_url" | "quick_reply">("web_url");
+    const [directUrl, setDirectUrl] = useState<string>("");
+    const [buttonText, setButtonText] = useState<string>("");
+    const [buttonUrl, setButtonUrl] = useState<string>("");
 
-    // Step 5 State (Opening DM - Previously Step 4)
-    const [step4Text, setStep4Text] = useState<string>("");
-    const [step4BtnType, setStep4BtnType] = useState<"quick_reply" | "web_url">("quick_reply");
-    const [step4Buttons, setStep4Buttons] = useState<{ title: string, url: string }[]>([{ title: "", url: "" }]);
+    // Quick Replies UI state for Step 5
+    const [finalQuickReplies, setFinalQuickReplies] = useState<{ title: string, payload: string }[]>([{ title: "", payload: "" }]);
 
-    // Step 6 State (Follow-up DM - Previously Step 5)
-    const [step5Text, setStep5Text] = useState<string>("");
-    const [step5BtnType, setStep5BtnType] = useState<"quick_reply" | "web_url">("quick_reply");
-    const [step5Buttons, setStep5Buttons] = useState<{ title: string, url: string }[]>([{ title: "", url: "" }]);
-
-    // Step 7 State (Final Web Link - Previously Step 6)
+    // Step 6 State - Lanjutan / Followup Message
     const [step6Text, setStep6Text] = useState<string>("");
-    const [step6UrlTitle, setStep6UrlTitle] = useState<string>("");
-    const [step6UrlLink, setStep6UrlLink] = useState<string>("");
-    // Steps initialized empty, will be populated by useEffect if editing
-    // ----------------------------------------
+
+    // Step 5 State — Opening DM / Sequence
+    const [step5Type, setStep5Type] = useState<string>(""); // "opening_dm" | "follow_check" | ""
+    const [openingDmText, setOpeningDmText] = useState<string>("");
+    const [quickReplyButtons, setQuickReplyButtons] = useState<string[]>([""]);  // max 3 text buttons
+
     // IG Posts State
     const [igPosts, setIgPosts] = useState<IgMedia[]>([]);
     const [isLoadingPosts, setIsLoadingPosts] = useState(false);
-
-    // Populate state if editing existing trigger
-    useEffect(() => {
-        if (initialData) {
-            setTriggerSource(initialData.trigger_source || "komentar_ig_fb");
-            if (initialData.target_post && initialData.target_post !== "any_post") {
-                setTargetPost("specific");
-                setSelectedPost({ id: initialData.target_post, media_url: "" } as any);
-            } else {
-                setTargetPost("all");
-            }
-            setIsAnyWord(initialData.is_any_word || false);
-            setKeyword(initialData.keyword === "*" ? "" : (initialData.keyword || ""));
-
-            if (initialData.comment_reply) {
-                setEnableCommentReply(true);
-                const replies = [initialData.comment_reply, initialData.comment_reply_2, initialData.comment_reply_3].filter(Boolean);
-                if (replies.length > 0) setCommentReplies(replies as string[]);
-            }
-
-            setStep4Text(initialData.step4_text || "");
-            setStep4BtnType(initialData.step4_button_type || "quick_reply");
-            setStep4Buttons([
-                { title: initialData.step4_button1_text || "", url: initialData.step4_button1_url || "" },
-                { title: initialData.step4_button2_text || "", url: initialData.step4_button2_url || "" }
-            ]);
-
-            setStep5Text(initialData.step5_text || "");
-            setStep5BtnType(initialData.step5_button_type || "quick_reply");
-            setStep5Buttons([
-                { title: initialData.step5_button1_text || "", url: initialData.step5_button1_url || "" },
-                { title: initialData.step5_button2_text || "", url: initialData.step5_button2_url || "" }
-            ]);
-
-            setStep6Text(initialData.step6_text || "");
-            setStep6UrlTitle(initialData.step6_button_text || "");
-            setStep6UrlLink(initialData.step6_button_url || "");
-
-            // Infer flowType
-            if (initialData.step5_text || initialData.step6_text) {
-                setFlowType("sequence");
-            } else if (initialData.step4_button_type === "web_url") {
-                setFlowType("direct");
-            }
-        }
-    }, [initialData]);
 
     const fetchIgPosts = async () => {
         if (!metaInstagramId || !metaAccessToken) return;
@@ -406,102 +344,98 @@ export const AutomationWizard: React.FC<AutomationWizardProps> = ({ userId, meta
                 const activeReplies = commentReplies.filter(r => r.trim());
                 if (activeReplies.length === 0) return toast({ description: "Masukkan setidaknya 1 balasan komentar", variant: "destructive" });
             }
-            setStep(4); return;
+            // Go straight to Step 4 (Sequence)
+            setStep(4);
+            return;
         }
+
         if (step === 4) {
-            if (!flowType) return toast({ description: "Pilih tipe aliran chat", variant: "destructive" });
-            // If direct, step 5 is opening DM with URL. 
-            // If sequence, step 5 is opening DM with buttons.
-            setStep(5); return;
+            setStep(5);
+            return;
         }
+
         if (step === 5) {
-            if (!step4Text.trim()) return toast({ description: "Pesan DM wajib diisi", variant: "destructive" });
-            if (flowType === "direct") {
-                // Handle as Save if it's direct? No, Footer handles it.
-                return;
-            }
-            setStep(6); return;
+            if (!dmReply.trim()) return toast({ description: "Pesan DM wajib diisi", variant: "destructive" });
+            // buttonUrl is optional — skip required check
         }
-        if (step === 6) {
-            if (!step5Text.trim()) return toast({ description: "Pesan Lanjutan wajib diisi", variant: "destructive" });
-            setStep(7); return;
-        }
-        if (step < 7) setStep(step + 1);
+        if (step < 5) setStep(step + 1);
     };
 
     const handleBack = () => {
+        // From step 4 back to 3
+        if (step === 4) { setStep(3); return; }
+        // From step 5 back to 4
+        if (step === 5) { setStep(4); return; }
         if (step > 1) setStep(step - 1);
     };
 
     const handleSave = async () => {
-        // Validation
-        if (!step4Text.trim()) {
-            return toast({ description: "Pesan DM (Langkah 5) tidak boleh kosong", variant: "destructive" });
+        if (!dmReply.trim()) {
+            return toast({ description: "Balasan DM tidak boleh kosong", variant: "destructive" });
         }
-
-        if (flowType === "sequence") {
-            if (!step5Text.trim()) return toast({ description: "Pesan Follow-up (Langkah 6) tidak boleh kosong", variant: "destructive" });
-            if (!step6Text.trim()) return toast({ description: "Pesan Ending (Langkah 7) tidak boleh kosong", variant: "destructive" });
-        }
-
+        // Button is optional — no required check
         setIsSaving(true);
         try {
+            let btn1Text = null, btn1Url = null, btn2Text = null, btn2Url = null, btn3Text = null, btn3Url = null;
+            // Opening DM quick reply buttons (no URL = quick reply text)
+            if (step5Type === "opening_dm" && openingDmText.trim()) {
+                const activeBtns = quickReplyButtons.filter(b => b.trim());
+                btn1Text = activeBtns[0] || null;
+                btn1Url = null; // no URL = Instagram Quick Reply
+                btn2Text = activeBtns[1] || null;
+                btn2Url = null;
+                btn3Text = activeBtns[2] || null;
+                btn3Url = null;
+            } else if (buttonText.trim()) {
+                // Step 7 button (with optional URL)
+                btn1Text = buttonText; btn1Url = buttonUrl.trim() || null;
+            }
+
             const activeComments = enableCommentReply ? commentReplies.filter(r => r.trim()) : [];
             const cRep1 = activeComments[0] || null;
             const cRep2 = activeComments[1] || null;
             const cRep3 = activeComments[2] || null;
 
-            // Helper to clean buttons payload
-            const getBtnAttr = (btns: any[], idx: number, key: 'title' | 'url') => {
-                const item = btns[idx];
-                return item && item[key] && item[key].trim() ? item[key].trim() : null;
-            };
+            // Prepare final Quick Replies payload for database
+            let dbQuickReplies: any[] = [];
+            if (buttonType === "quick_reply") {
+                const activeQr = finalQuickReplies.filter(q => q.title.trim() !== "");
+                if (activeQr.length > 0) {
+                    dbQuickReplies = activeQr.map(q => ({
+                        title: q.title.trim(),
+                        payload: q.payload.trim() || q.title.trim() // fallback
+                    }));
+                }
+            }
 
             const payload = {
                 user_id: userId,
                 target_post: selectedPost ? selectedPost.id : (triggerSource === "komentar_ig_fb" ? targetPost : "any_post"),
                 trigger_source: triggerSource,
-                keyword: isAnyWord ? "*" : keyword,
+                keyword: isAnyWord ? "*" : keyword, // Save * as keyword if any word
                 is_any_word: isAnyWord,
                 comment_reply: (triggerSource === "komentar_ig_fb" && cRep1) ? cRep1 : null,
                 comment_reply_2: (triggerSource === "komentar_ig_fb" && cRep2) ? cRep2 : null,
                 comment_reply_3: (triggerSource === "komentar_ig_fb" && cRep3) ? cRep3 : null,
-
-                step4_text: step4Text,
-                step4_button_type: flowType === "direct" ? "web_url" : step4BtnType,
-                step4_button1_text: getBtnAttr(step4Buttons, 0, 'title'),
-                step4_button1_url: (flowType === "direct" || step4BtnType === "web_url") ? getBtnAttr(step4Buttons, 0, 'url') : null,
-                step4_button2_text: flowType === "direct" ? null : getBtnAttr(step4Buttons, 1, 'title'),
-                step4_button2_url: (flowType === "sequence" && step4BtnType === "web_url") ? getBtnAttr(step4Buttons, 1, 'url') : null,
-
-                step5_text: flowType === "sequence" ? step5Text : null,
-                step5_button_type: flowType === "sequence" ? step5BtnType : null,
-                step5_button1_text: flowType === "sequence" ? getBtnAttr(step5Buttons, 0, 'title') : null,
-                step5_button1_url: (flowType === "sequence" && step5BtnType === "web_url") ? getBtnAttr(step5Buttons, 0, 'url') : null,
-                step5_button2_text: flowType === "sequence" ? getBtnAttr(step5Buttons, 1, 'title') : null,
-                step5_button2_url: (flowType === "sequence" && step5BtnType === "web_url") ? getBtnAttr(step5Buttons, 1, 'url') : null,
-
-                step6_text: flowType === "sequence" ? step6Text : null,
-                step6_button_text: flowType === "sequence" ? (step6UrlTitle.trim() || null) : null,
-                step6_button_url: flowType === "sequence" ? (step6UrlLink.trim() || null) : null,
-
-                is_active: initialData?.is_active ?? true,
+                reply_message: step5Type === "opening_dm" ? openingDmText : dmReply,
+                sequence_type: step5Type || null,
+                button_text: buttonType === "web_url" ? btn1Text : null,
+                button_url: buttonType === "web_url" ? btn1Url : null,
+                button_text_2: buttonType === "web_url" ? btn2Text : null,
+                button_url_2: buttonType === "web_url" ? btn2Url : null,
+                button_text_3: buttonType === "web_url" ? btn3Text : null,
+                button_url_3: buttonType === "web_url" ? btn3Url : null,
+                quick_replies: dbQuickReplies.length > 0 ? dbQuickReplies : null,
+                is_active: true,
+                basa_basi: null,
             };
 
-            let error;
-            if (initialData?.id) {
-                // Update existing
-                const res = await supabase.from("autochat_triggers").update(payload).eq("id", initialData.id);
-                error = res.error;
-            } else {
-                // Insert new
-                const res = await supabase.from("autochat_triggers").insert(payload);
-                error = res.error;
-            }
 
+
+            const { error } = await supabase.from("autochat_triggers").insert(payload);
             if (error) throw error;
 
-            toast({ title: initialData?.id ? "Automation Berhasil Diupdate! 🎉" : "Automation Berhasil Dibuat! 🎉", description: `Keyword "${keyword}" aktif.` });
+            toast({ title: "Automation Berhasil Dibuat! 🎉", description: `Keyword "${keyword}" aktif.` });
             onSuccess();
         } catch (err: any) {
             toast({ title: "Gagal menyimpan automation", description: err.message, variant: "destructive" });
@@ -524,11 +458,7 @@ export const AutomationWizard: React.FC<AutomationWizardProps> = ({ userId, meta
         );
     };
 
-    const allSteps = flowType === "direct"
-        ? ["Trigger", "Post", "Keyword", "Alur", "Pesan DM"]
-        : ["Trigger", "Post", "Keyword", "Alur", "Opening", "Followup", "Ending"];
-
-    const totalStepsNum = flowType === "direct" ? 5 : 7;
+    const allSteps = ["Trigger", "Post", "Keyword", "Komen", "Basa Basi", "Follow?", "DM Pertama", "Follow-up DM"];
 
     return (
         <div className="mb-8 rounded-2xl border border-border bg-card shadow-sm overflow-hidden">
@@ -536,7 +466,7 @@ export const AutomationWizard: React.FC<AutomationWizardProps> = ({ userId, meta
             <div className="border-b border-border bg-secondary/20 px-6 py-4">
                 <div className="flex items-center justify-between mb-3">
                     <h3 className="font-semibold text-foreground">Buat Automation Baru</h3>
-                    <span className="text-sm font-medium text-muted-foreground">Langkah {step} dari {totalStepsNum}</span>
+                    <span className="text-sm font-medium text-muted-foreground">Langkah {step} dari 6</span>
                 </div>
                 <div className="flex items-center gap-1">
                     {allSteps.map((label, i) => {
@@ -775,217 +705,204 @@ export const AutomationWizard: React.FC<AutomationWizardProps> = ({ userId, meta
                             </motion.div>
                         )}
 
-                        {/* STEP 4: FLOW CHOICE */}
+                        {/* STEP 4: SEQUENCE OPTION */}
                         {step === 4 && (
-                            <motion.div key="step4" initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -20 }} className="space-y-4">
-                                <h4 className="text-lg font-medium text-foreground mb-4">Pilih Aliran Chat</h4>
+                            <motion.div key="step4" initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -20 }} className="space-y-5">
+                                <h4 className="text-lg font-medium text-foreground mb-1">Sequence Sebelum Link 💬</h4>
+                                <p className="text-sm text-muted-foreground mb-4">Pilih tipe pesan yang dikirim bot sebelum kasih link.</p>
                                 <div className="flex flex-col gap-3">
-                                    <div
-                                        onClick={() => setFlowType("direct")}
-                                        className={`cursor-pointer rounded-xl border-2 p-4 transition-all ${flowType === "direct" ? "border-primary bg-primary/5 shadow-[0_0_15px_-3px_rgba(255,0,0,0.1)]" : "border-border hover:border-primary/50"}`}
-                                    >
-                                        <div className="flex items-center gap-3">
-                                            <div className={`flex h-5 w-5 shrink-0 items-center justify-center rounded-full border ${flowType === "direct" ? "border-primary bg-primary" : "border-muted-foreground"}`}>
-                                                {flowType === "direct" && <CheckCircle2 className="h-3 w-3 text-white" />}
-                                            </div>
-                                            <div>
-                                                <span className={`font-bold text-sm block ${flowType === "direct" ? "text-primary" : "text-foreground"}`}>A. Simpel Kirim URL</span>
-                                                <p className="text-[10px] text-muted-foreground">Kirim teks salam + 1 tombol website (Selesai).</p>
-                                            </div>
-                                        </div>
-                                    </div>
-
-                                    <div
-                                        onClick={() => setFlowType("sequence")}
-                                        className={`cursor-pointer rounded-xl border-2 p-4 transition-all ${flowType === "sequence" ? "border-primary bg-primary/5 shadow-[0_0_15px_-3px_rgba(255,0,0,0.1)]" : "border-border hover:border-primary/50"}`}
-                                    >
-                                        <div className="flex items-center gap-3">
-                                            <div className={`flex h-5 w-5 shrink-0 items-center justify-center rounded-full border ${flowType === "sequence" ? "border-primary bg-primary" : "border-muted-foreground"}`}>
-                                                {flowType === "sequence" && <CheckCircle2 className="h-3 w-3 text-white" />}
-                                            </div>
-                                            <div>
-                                                <span className={`font-bold text-sm block ${flowType === "sequence" ? "text-primary" : "text-foreground"}`}>B. Sequence 3 Step</span>
-                                                <p className="text-[10px] text-muted-foreground">Flow interaktif (Pilihan &rarr; Detail &rarr; Link Website).</p>
-                                            </div>
-                                        </div>
-                                    </div>
-                                </div>
-                            </motion.div>
-                        )}
-
-                        {/* STEP 5: Opening DM (Previously Step 4) */}
-                        {step === 5 && (
-                            <motion.div key="step5" initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -20 }} className="space-y-5">
-                                <h4 className="text-lg font-medium text-foreground mb-1">{flowType === "direct" ? "Konfigurasi Pesan" : "Langkah 1: Opening DM"}</h4>
-                                <p className="text-sm text-muted-foreground mb-3">{flowType === "direct" ? "Pesan ini akan dikirim dengan tombol URL." : "Pesan pertama yang akan diterima user."}</p>
-
-                                <div>
-                                    <textarea
-                                        placeholder="Contoh: Halo kak! Mau info produk kita?"
-                                        className="w-full min-h-[100px] rounded-xl border border-input bg-background px-4 py-3 text-base focus:outline-none focus:ring-2 focus:ring-primary/50"
-                                        value={step4Text}
-                                        onChange={e => setStep4Text(e.target.value)}
-                                    />
+                                    <OptionCard label="A. 💬 Opening DM — Kirim pesan + tombol teks (user klik = reply otomatis)" value="opening_dm" current={step5Type} onChange={setStep5Type} />
+                                    <OptionCard label="B. 🔒 Sequence Follow — Bot minta follow dulu sebelum kasih link" value="follow_check" current={step5Type} onChange={setStep5Type} />
+                                    <OptionCard label="C. ⏭️ Tidak perlu — Langsung DM link" value="" current={step5Type} onChange={setStep5Type} />
                                 </div>
 
-                                <div className="rounded-xl border border-border bg-secondary/10 p-4 space-y-4 mt-4">
-                                    <h5 className="text-sm font-semibold text-foreground mb-1">
-                                        {flowType === "direct" ? "Tombol Website" : "Tipe Tombol (Maksimal 2)"}
-                                    </h5>
-
-                                    {flowType === "sequence" && (
-                                        <div className="flex items-center gap-4 mt-2">
-                                            <label className="flex items-center gap-2 cursor-pointer">
-                                                <input type="radio" className="h-4 w-4 text-primary" checked={step4BtnType === "quick_reply"} onChange={() => setStep4BtnType("quick_reply")} />
-                                                <span className="text-sm font-medium">Quick Replies</span>
-                                            </label>
-                                            <label className="flex items-center gap-2 cursor-pointer">
-                                                <input type="radio" className="h-4 w-4 text-primary" checked={step4BtnType === "web_url"} onChange={() => setStep4BtnType("web_url")} />
-                                                <span className="text-sm font-medium">Website URL</span>
-                                            </label>
-                                        </div>
-                                    )}
-
-                                    <div className="h-px bg-border my-2" />
-
-                                    {flowType === "direct" ? (
-                                        <div className="flex gap-2 items-center mb-2">
-                                            <input
-                                                type="text"
-                                                placeholder="Judul Tombol"
-                                                value={step4Buttons[0].title}
-                                                onChange={e => { const newB = [...step4Buttons]; newB[0].title = e.target.value; setStep4Buttons(newB); }}
-                                                className="flex-1 rounded-xl border border-input px-3 py-2 text-sm focus:ring-primary"
-                                            />
-                                            <input
-                                                type="url"
-                                                placeholder="https://..."
-                                                value={step4Buttons[0].url}
-                                                onChange={e => { const newB = [...step4Buttons]; newB[0].url = e.target.value; setStep4Buttons(newB); }}
-                                                className="flex-1 rounded-xl border border-input px-3 py-2 text-sm focus:ring-primary"
+                                {step5Type === "opening_dm" && (
+                                    <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: "auto" }} className="space-y-4 pt-2">
+                                        <div>
+                                            <label className="text-xs font-medium text-muted-foreground mb-1 block">Pesan Opening DM <span className="text-destructive">*</span></label>
+                                            <textarea
+                                                placeholder="Contoh: Halo kak! Mau aku kirim linknya sekarang?"
+                                                className="w-full min-h-[80px] rounded-xl border border-input bg-background px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-primary/50"
+                                                value={openingDmText}
+                                                onChange={e => setOpeningDmText(e.target.value)}
                                             />
                                         </div>
-                                    ) : (
-                                        <>
-                                            {step4Buttons.map((btn, i) => (
-                                                <div key={i} className="flex gap-2 items-center mb-2">
+                                        <div className="space-y-2">
+                                            <label className="text-xs font-medium text-muted-foreground block">Tombol Quick Reply (teks saja — max 3) <span className="text-[10px] text-muted-foreground/60">User klik = kirim teks ini ke bot</span></label>
+                                            {quickReplyButtons.map((btn, i) => (
+                                                <div key={i} className="flex gap-2 items-center">
+                                                    <span className="text-xs text-muted-foreground w-4">{i + 1}.</span>
                                                     <input
                                                         type="text"
-                                                        placeholder={step4BtnType === "quick_reply" ? "Tombol Quick Reply (Maks 20 char)" : "Judul Tombol"}
-                                                        maxLength={step4BtnType === "quick_reply" ? 20 : 50}
-                                                        value={btn.title}
-                                                        onChange={e => { const newB = [...step4Buttons]; newB[i].title = e.target.value; setStep4Buttons(newB); }}
-                                                        className="flex-1 rounded-xl border border-input px-3 py-2 text-sm focus:ring-primary"
+                                                        placeholder={i === 0 ? "Contoh: Mau" : i === 1 ? "Contoh: Gak mau" : "Contoh: Nanti deh"}
+                                                        className="flex-1 rounded-xl border border-input bg-background px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary/50"
+                                                        value={btn}
+                                                        onChange={e => {
+                                                            const updated = [...quickReplyButtons];
+                                                            updated[i] = e.target.value;
+                                                            setQuickReplyButtons(updated);
+                                                        }}
                                                     />
-                                                    {step4BtnType === "web_url" && (
-                                                        <input
-                                                            type="url"
-                                                            placeholder="https://..."
-                                                            value={btn.url}
-                                                            onChange={e => { const newB = [...step4Buttons]; newB[i].url = e.target.value; setStep4Buttons(newB); }}
-                                                            className="flex-1 rounded-xl border border-input px-3 py-2 text-sm focus:ring-primary"
-                                                        />
+                                                    {quickReplyButtons.length > 1 && (
+                                                        <button onClick={() => setQuickReplyButtons(quickReplyButtons.filter((_, j) => j !== i))} className="text-destructive text-xs hover:opacity-70">✕</button>
                                                     )}
                                                 </div>
                                             ))}
-                                            {step4Buttons.length < 2 && (
-                                                <button onClick={() => setStep4Buttons([...step4Buttons, { title: "", url: "" }])} className="text-primary text-xs font-semibold">+ Tambah Tombol</button>
+                                            {quickReplyButtons.length < 3 && (
+                                                <button
+                                                    onClick={() => setQuickReplyButtons([...quickReplyButtons, ""])}
+                                                    className="text-xs text-primary hover:underline mt-1 flex items-center gap-1"
+                                                >
+                                                    + Tambah Tombol
+                                                </button>
                                             )}
-                                        </>
-                                    )}
-                                </div>
+                                        </div>
+                                    </motion.div>
+                                )}
+
+                                {step5Type === "follow_check" && (
+                                    <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: "auto" }} className="rounded-xl bg-muted/50 p-3 text-xs text-muted-foreground space-y-1">
+                                        <p>Bot akan kirim: <span className="text-foreground italic">"Follow aku dulu dong biar ku kasih Link Nya! 🔒"</span></p>
+                                        <p>User balas <span className="text-primary font-semibold">"Aku Sudah Follow"</span> → bot cek → kirim link jika benar</p>
+                                    </motion.div>
+                                )}
                             </motion.div>
                         )}
 
-                        {/* STEP 6: Followup (Previously Step 5) */}
-                        {step === 6 && flowType === "sequence" && (
-                            <motion.div key="step6" initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -20 }} className="space-y-5">
-                                <h4 className="text-lg font-medium text-foreground mb-1">Langkah 2: Follow-up DM</h4>
-                                <p className="text-sm text-muted-foreground mb-3">Balasan jika user mengeklik pilihan di Opening DM.</p>
-
+                        {/* STEP 5: DM REPLY + BUTTON (mandatory) */}
+                        {step === 5 && (
+                            <motion.div key="step5_dm" initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -20 }} className="space-y-5">
+                                {/* Part A: Pesan DM */}
                                 <div>
+                                    <h4 className="text-lg font-medium text-foreground mb-1">Pesan DM otomatis</h4>
+                                    <p className="text-sm text-muted-foreground mb-3">Pesan ini akan masuk ke inbox/DM mereka secara otomatis.</p>
                                     <textarea
-                                        placeholder="Contoh: Baik, ini detail harganya."
+                                        autoFocus
+                                        placeholder="Contoh: Hai kak! Makasih udah komen ya 😊 Ini aku kirimin link-nya langsung..."
                                         className="w-full min-h-[100px] rounded-xl border border-input bg-background px-4 py-3 text-base focus:outline-none focus:ring-2 focus:ring-primary/50"
-                                        value={step5Text}
-                                        onChange={e => setStep5Text(e.target.value)}
+                                        value={dmReply}
+                                        onChange={e => setDmReply(e.target.value)}
                                     />
                                 </div>
 
-                                <div className="rounded-xl border border-border bg-secondary/10 p-4 space-y-4 mt-4">
-                                    <h5 className="text-sm font-semibold text-foreground mb-1">Tipe Tombol (Maksimal 2)</h5>
-                                    <div className="flex items-center gap-4 mt-2">
-                                        <label className="flex items-center gap-2 cursor-pointer">
-                                            <input type="radio" className="h-4 w-4 text-primary" checked={step5BtnType === "quick_reply"} onChange={() => setStep5BtnType("quick_reply")} />
-                                            <span className="text-sm font-medium">Quick Replies</span>
-                                        </label>
-                                        <label className="flex items-center gap-2 cursor-pointer">
-                                            <input type="radio" className="h-4 w-4 text-primary" checked={step5BtnType === "web_url"} onChange={() => setStep5BtnType("web_url")} />
-                                            <span className="text-sm font-medium">Website URL</span>
-                                        </label>
+                                {/* Part B: Isi Tombol (Opsional) */}
+                                <div className="rounded-xl border border-border bg-secondary/10 p-4 space-y-4">
+                                    <div>
+                                        <h5 className="text-sm font-semibold text-foreground mb-1">Would you like to add action buttons or quick replies?</h5>
+                                        <div className="flex items-center gap-4 mt-3">
+                                            <label className="flex items-center gap-2 cursor-pointer">
+                                                <input type="radio" className="h-4 w-4 text-primary" name="buttonType" checked={buttonType === "web_url"} onChange={() => setButtonType("web_url")} />
+                                                <span className="text-sm font-medium">Buttons (Website Link)</span>
+                                            </label>
+                                            <label className="flex items-center gap-2 cursor-pointer">
+                                                <input type="radio" className="h-4 w-4 text-primary" name="buttonType" checked={buttonType === "quick_reply"} onChange={() => setButtonType("quick_reply")} />
+                                                <span className="text-sm font-medium">Quick Replies</span>
+                                            </label>
+                                        </div>
                                     </div>
+
                                     <div className="h-px bg-border my-2" />
 
-                                    {step5Buttons.map((btn, i) => (
-                                        <div key={i} className="flex gap-2 items-center mb-2">
-                                            <input
-                                                type="text"
-                                                placeholder={step5BtnType === "quick_reply" ? "Tombol Quick Reply (Maks 20 char)" : "Judul Tombol"}
-                                                maxLength={step5BtnType === "quick_reply" ? 20 : 50}
-                                                value={btn.title}
-                                                onChange={e => { const newB = [...step5Buttons]; newB[i].title = e.target.value; setStep5Buttons(newB); }}
-                                                className="flex-1 rounded-xl border border-input px-3 py-2 text-sm focus:ring-primary"
-                                            />
-                                            {step5BtnType === "web_url" && (
-                                                <input
-                                                    type="url"
-                                                    placeholder="https://..."
-                                                    value={btn.url}
-                                                    onChange={e => { const newB = [...step5Buttons]; newB[i].url = e.target.value; setStep5Buttons(newB); }}
-                                                    className="flex-1 rounded-xl border border-input px-3 py-2 text-sm focus:ring-primary"
-                                                />
+                                    {/* WEBSITE BUTTON UI */}
+                                    {buttonType === "web_url" && (
+                                        <div className="space-y-3">
+                                            <p className="text-[11px] text-muted-foreground">Add a button that opens a website URL when clicked. Max 3 buttons.</p>
+                                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                                                <div>
+                                                    <label className="text-xs font-medium text-muted-foreground mb-1 block">Nama Tombol</label>
+                                                    <input
+                                                        type="text"
+                                                        placeholder="Contoh: Lihat Produk"
+                                                        className="w-full rounded-xl border border-input bg-background px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary/50"
+                                                        value={buttonText}
+                                                        onChange={e => setButtonText(e.target.value)}
+                                                    />
+                                                </div>
+                                                <div>
+                                                    <label className="text-xs font-medium text-muted-foreground mb-1 block">URL Link <span className="text-muted-foreground font-normal">(opsional)</span></label>
+                                                    <input
+                                                        type="url"
+                                                        placeholder="https://elvisiongroup.com"
+                                                        className="w-full rounded-xl border border-input bg-background px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary/50"
+                                                        value={buttonUrl}
+                                                        onChange={e => setButtonUrl(e.target.value)}
+                                                    />
+                                                </div>
+                                            </div>
+                                        </div>
+                                    )}
+
+                                    {/* QUICK REPLIES UI */}
+                                    {buttonType === "quick_reply" && (
+                                        <div className="space-y-3">
+                                            <p className="text-[11px] text-muted-foreground mb-2 leading-relaxed">
+                                                Add up to thirteen quick replies that contacts can select to send as messages in Instagram Messenger. For Instagram, quick replies are displayed only when no attachments are included.
+                                            </p>
+
+                                            {finalQuickReplies.map((qr, i) => (
+                                                <div key={i} className="flex flex-col gap-1 mb-3">
+                                                    <label className="text-xs font-medium text-muted-foreground">Quick Reply {i + 1}</label>
+                                                    <div className="flex gap-2 items-center">
+                                                        <input
+                                                            type="text"
+                                                            maxLength={20}
+                                                            placeholder={i === 0 ? "Book a call!" : "Enter a quick reply"}
+                                                            className="flex-1 rounded-xl border border-input bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/50"
+                                                            value={qr.title}
+                                                            onChange={e => {
+                                                                const updated = [...finalQuickReplies];
+                                                                updated[i] = { ...updated[i], title: e.target.value, payload: e.target.value };
+                                                                setFinalQuickReplies(updated);
+                                                            }}
+                                                        />
+                                                        {finalQuickReplies.length > 1 && (
+                                                            <button
+                                                                onClick={() => setFinalQuickReplies(finalQuickReplies.filter((_, j) => j !== i))}
+                                                                className="flex items-center justify-center p-2 rounded-lg border border-border bg-background hover:bg-destructive/10 hover:text-destructive hover:border-destructive/30 transition-colors"
+                                                            >
+                                                                ✕
+                                                            </button>
+                                                        )}
+                                                    </div>
+                                                    <span className="text-[10px] text-muted-foreground/60">Maximum 20 characters allowed</span>
+                                                </div>
+                                            ))}
+
+                                            {finalQuickReplies.length < 13 && (
+                                                <Button
+                                                    variant="secondary"
+                                                    size="sm"
+                                                    className="mt-2 text-primary bg-primary/10 hover:bg-primary/20"
+                                                    onClick={() => setFinalQuickReplies([...finalQuickReplies, { title: "", payload: "" }])}
+                                                >
+                                                    + Add Quick Reply
+                                                </Button>
                                             )}
                                         </div>
-                                    ))}
-                                    {step5Buttons.length < 2 && (
-                                        <button onClick={() => setStep5Buttons([...step5Buttons, { title: "", url: "" }])} className="text-primary text-xs font-semibold">+ Tambah Tombol</button>
                                     )}
                                 </div>
                             </motion.div>
                         )}
 
-                        {/* STEP 7: Final Ending (Previously Step 6) */}
-                        {step === 7 && flowType === "sequence" && (
-                            <motion.div key="step7" initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -20 }} className="space-y-5">
-                                <h4 className="text-lg font-medium text-foreground mb-1">Langkah 3: Ending Link</h4>
-                                <p className="text-sm text-muted-foreground mb-3">Teks terakhir dan sebuah link website (maks 1 tombol).</p>
-
+                        {/* STEP 6: FOLLOW-UP SEQUENCE */}
+                        {step === 6 && (
+                            <motion.div key="step6_dm" initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -20 }} className="space-y-5">
                                 <div>
+                                    <h4 className="text-lg font-medium text-foreground mb-1">DM Lanjutan (Follow-up)</h4>
+                                    <p className="text-sm text-muted-foreground mb-3">Jika user menekan tombol Quick Reply di langkah sebelumnya, bot akan membalas dengan teks ini.</p>
                                     <textarea
-                                        placeholder="Contoh: Silakan selesaikan pesanan Anda di website kami ya!"
-                                        className="w-full min-h-[100px] rounded-xl border border-input bg-background px-4 py-3 text-base focus:outline-none focus:ring-2 focus:ring-primary/50"
+                                        autoFocus
+                                        placeholder="Contoh: Keren kan! Tonton video tutorial pengunaannya di bawah ini ya kak 👇"
+                                        className="w-full min-h-[120px] rounded-xl border border-input bg-background px-4 py-3 text-base focus:outline-none focus:ring-2 focus:ring-primary/50"
                                         value={step6Text}
                                         onChange={e => setStep6Text(e.target.value)}
                                     />
                                 </div>
-
-                                <div className="rounded-xl border border-border bg-secondary/10 p-4 space-y-4 mt-4">
-                                    <h5 className="text-sm font-semibold text-foreground mb-1">Tombol Website</h5>
-                                    <div className="flex gap-2 items-center">
-                                        <input
-                                            type="text"
-                                            placeholder="Judul Tombol (Ex: Beli Sekarang)"
-                                            value={step6UrlTitle}
-                                            onChange={e => setStep6UrlTitle(e.target.value)}
-                                            className="flex-1 rounded-xl border border-input px-3 py-2 text-sm focus:ring-primary"
-                                        />
-                                        <input
-                                            type="url"
-                                            placeholder="https://..."
-                                            value={step6UrlLink}
-                                            onChange={e => setStep6UrlLink(e.target.value)}
-                                            className="flex-1 rounded-xl border border-input px-3 py-2 text-sm focus:ring-primary"
-                                        />
+                                <div className="rounded-xl border border-border bg-primary/5 p-4 flex items-start gap-3">
+                                    <div className="text-2xl mt-1">💡</div>
+                                    <div className="text-xs text-muted-foreground leading-relaxed">
+                                        <p className="font-semibold text-foreground mb-1">Membangun Cabang Otomatisasi:</p>
+                                        Saat ini sistem Builder hanya menyimpan sekuens lurus (1 jalur). Untuk percabangan kompleks (di mana setiap Quick Reply membuka dialog berbeda), Anda akan perlu membangun arsitektur <span className="font-mono text-primary bg-primary/10 px-1 rounded">Node Editor / Flowchart</span>.
                                     </div>
                                 </div>
                             </motion.div>
@@ -999,25 +916,19 @@ export const AutomationWizard: React.FC<AutomationWizardProps> = ({ userId, meta
                     <div className="md:sticky md:top-6 w-full flex justify-center">
                         <PhonePreview
                             step={step}
-                            flowType={flowType}
                             keyword={keyword}
                             isAnyWord={isAnyWord}
                             commentReplies={commentReplies}
                             enableCommentReply={enableCommentReply}
+                            dmReply={dmReply}
                             triggerSource={triggerSource}
+                            step5Type={step5Type}
+                            openingDmText={openingDmText}
+                            quickReplyButtons={quickReplyButtons}
+                            directUrl={directUrl}
                             selectedPost={selectedPost}
-
-                            step4Text={step4Text}
-                            step4BtnType={step4BtnType}
-                            step4Buttons={step4Buttons}
-
-                            step5Text={step5Text}
-                            step5BtnType={step5BtnType}
-                            step5Buttons={step5Buttons}
-
-                            step6Text={step6Text}
-                            step6UrlTitle={step6UrlTitle}
-                            step6UrlLink={step6UrlLink}
+                            buttonText={buttonText}
+                            buttonUrl={buttonUrl}
                         />
                     </div>
                 </div>
@@ -1029,13 +940,22 @@ export const AutomationWizard: React.FC<AutomationWizardProps> = ({ userId, meta
                     {step === 1 ? "Batal" : <><ArrowLeft className="h-4 w-4 mr-2" /> Kembali</>}
                 </Button>
 
-                {(step < totalStepsNum && !(step === 5 && flowType === "direct")) ? (
+                {step < 5 ? (
                     <Button onClick={handleNext} className="min-w-[120px] shadow-lg shadow-primary/20">
                         Lanjut <ArrowRight className="h-4 w-4 ml-2" />
                     </Button>
+                ) : step === 5 ? (
+                    <div className="flex gap-3">
+                        <Button variant="outline" onClick={() => setStep(step + 1)} className="min-w-[140px] text-primary border-primary hover:bg-primary/10 transition-colors">
+                            Lanjut Step {step + 1} <ArrowRight className="h-4 w-4 ml-2" />
+                        </Button>
+                        <Button onClick={handleSave} disabled={isSaving} className="min-w-[140px] shadow-lg shadow-primary/20 bg-primary hover:bg-primary/90 text-white">
+                            {isSaving ? <Loader2 className="h-4 w-4 animate-spin" /> : "✅ Simpan Saja"}
+                        </Button>
+                    </div>
                 ) : (
                     <Button onClick={handleSave} disabled={isSaving} className="min-w-[140px] shadow-lg shadow-primary/20 bg-primary hover:bg-primary/90 text-white">
-                        {isSaving ? <Loader2 className="h-4 w-4 animate-spin" /> : "✅ Simpan Trigger"}
+                        {isSaving ? <Loader2 className="h-4 w-4 animate-spin" /> : "✅ Simpan Trigger (Selesai)"}
                     </Button>
                 )}
             </div>
