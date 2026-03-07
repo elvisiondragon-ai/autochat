@@ -7,6 +7,7 @@ import { Loader2, ArrowLeft, ArrowRight, CheckCircle2, MessageCircle, Heart, Sen
 
 export interface AutomationWizardProps {
     userId: string;
+    userEmail: string;
     metaInstagramId?: string | null;
     metaAccessToken?: string | null;
     initialData?: any; // To support editing existing triggers
@@ -255,7 +256,7 @@ const PhonePreview = ({ step, flowType, keyword, isAnyWord, commentReplies, enab
 
 
 // ── Main Wizard Component ─────────────────────────────────────────────────────
-export const AutomationWizard: React.FC<AutomationWizardProps> = ({ userId, metaInstagramId, metaAccessToken, initialData, onSuccess, onCancel }) => {
+export const AutomationWizard: React.FC<AutomationWizardProps> = ({ userId, userEmail, metaInstagramId, metaAccessToken, initialData, onSuccess, onCancel }) => {
     const { toast } = useToast();
 
     const [step, setStep] = useState(1);
@@ -267,7 +268,7 @@ export const AutomationWizard: React.FC<AutomationWizardProps> = ({ userId, meta
     const [showPostPicker, setShowPostPicker] = useState(false);
     const [triggerSource, setTriggerSource] = useState<string>("");
     // Keyword State
-    const [isAnyWord, setIsAnyWord] = useState<boolean>(true); // Any word default
+    const [isAnyWord, setIsAnyWord] = useState<boolean>(false); // Specific word default
     const [keyword, setKeyword] = useState<string>("");
     // Comment Reply State
     const [enableCommentReply, setEnableCommentReply] = useState<boolean>(true); // Default to ON
@@ -447,14 +448,12 @@ export const AutomationWizard: React.FC<AutomationWizardProps> = ({ userId, meta
         }
         if (step < 7) {
             setStep(step + 1);
-            window.scrollTo({ top: 0, behavior: "instant" });
         }
     };
 
     const handleBack = () => {
         if (step > 1) {
             setStep(step - 1);
-            window.scrollTo({ top: 0, behavior: "instant" });
         }
     };
 
@@ -484,6 +483,7 @@ export const AutomationWizard: React.FC<AutomationWizardProps> = ({ userId, meta
 
             const payload = {
                 user_id: userId,
+                email: userEmail,
                 target_post: selectedPost ? selectedPost.id : (triggerSource === "komentar_ig_fb" ? targetPost : "any_post"),
                 trigger_source: triggerSource,
                 keyword: isAnyWord ? "*" : keyword,
@@ -592,7 +592,7 @@ export const AutomationWizard: React.FC<AutomationWizardProps> = ({ userId, meta
             {/* 2-column layout: Form + Phone Preview */}
             <div className="flex flex-col md:flex-row min-h-[400px]">
                 {/* ── LEFT: Form ── */}
-                <div className="flex-1 p-6 border-r border-border">
+                <div className="flex-1 p-6 border-r border-border order-2 md:order-1">
                     <AnimatePresence mode="wait">
 
                         {/* STEP 1: TRIGGER SOURCE */}
@@ -811,7 +811,7 @@ export const AutomationWizard: React.FC<AutomationWizardProps> = ({ userId, meta
                                 <h4 className="text-lg font-medium text-foreground mb-4">Pilih Aliran Chat</h4>
                                 <div className="flex flex-col gap-3">
                                     <div
-                                        onClick={() => { setFlowType("direct"); setIsFollowerOnly(false); }}
+                                        onClick={() => { setFlowType("direct"); setIsFollowerOnly(false); setIsAnyWord(false); }}
                                         className={`cursor-pointer rounded-xl border-2 p-4 transition-all ${flowType === "direct" ? "border-primary bg-primary/5 shadow-[0_0_15px_-3px_rgba(255,0,0,0.1)]" : "border-border hover:border-primary/50"}`}
                                     >
                                         <div className="flex items-center gap-3">
@@ -826,7 +826,7 @@ export const AutomationWizard: React.FC<AutomationWizardProps> = ({ userId, meta
                                     </div>
 
                                     <div
-                                        onClick={() => { setFlowType("sequence"); setIsFollowerOnly(false); }}
+                                        onClick={() => { setFlowType("sequence"); setIsFollowerOnly(false); setIsAnyWord(false); }}
                                         className={`cursor-pointer rounded-xl border-2 p-4 transition-all ${flowType === "sequence" && !isFollowerOnly ? "border-primary bg-primary/5 shadow-[0_0_15px_-3px_rgba(255,0,0,0.1)]" : "border-border hover:border-primary/50"}`}
                                     >
                                         <div className="flex items-center gap-3">
@@ -844,6 +844,7 @@ export const AutomationWizard: React.FC<AutomationWizardProps> = ({ userId, meta
                                         onClick={() => {
                                             setFlowType("sequence");
                                             setIsFollowerOnly(true);
+                                            setIsAnyWord(false); // Default to specific word for this template
                                             // Enable comment reply by default
                                             setEnableCommentReply(true);
                                             // Auto-fill Step 4 (Opening DM)
@@ -872,7 +873,12 @@ export const AutomationWizard: React.FC<AutomationWizardProps> = ({ userId, meta
                                                 {flowType === "sequence" && isFollowerOnly && <CheckCircle2 className="h-3 w-3 text-white" />}
                                             </div>
                                             <div>
-                                                <span className={`font-bold text-sm block ${flowType === "sequence" && isFollowerOnly ? "text-primary" : "text-foreground"}`}>C. Ajak Follower Only</span>
+                                                <div className="flex items-center gap-2">
+                                                    <span className={`font-bold text-sm block ${flowType === "sequence" && isFollowerOnly ? "text-primary" : "text-foreground"}`}>C. Ajak Follower Only</span>
+                                                    <span className="bg-yellow-500/10 text-yellow-500 text-[9px] px-1.5 py-0.5 rounded-full font-bold border border-yellow-500/20 flex items-center gap-0.5">
+                                                        ⭐ Most Popular
+                                                    </span>
+                                                </div>
                                                 <p className="text-[10px] text-muted-foreground">Otomatis cek & wajibkan follow sebelum link akhir.</p>
                                             </div>
                                         </div>
@@ -1110,7 +1116,7 @@ export const AutomationWizard: React.FC<AutomationWizardProps> = ({ userId, meta
                 </div>
 
                 {/* ── RIGHT: Phone Preview ── */}
-                <div className="w-full md:w-[320px] shrink-0 bg-secondary/10 p-6 flex flex-col items-center border-t md:border-t-0 md:border-l border-border relative">
+                <div className="w-full md:w-[320px] shrink-0 bg-secondary/10 p-6 flex flex-col items-center border-b md:border-b-0 md:border-l border-border relative order-1 md:order-2">
                     <div className="md:sticky md:top-6 w-full flex justify-center">
                         <PhonePreview
                             step={step}

@@ -99,15 +99,15 @@ export interface AutochatAudienceLog {
   created_at: string;
 }
 
+import { useAppContext } from "@/contexts/AppContext";
+
 const Dashboard = () => {
   const navigate = useNavigate();
   const { toast } = useToast();
+  const { session, client, is_pro, loading: authLoading, refreshClient } = useAppContext();
 
-  const [session, setSession] = useState<Session | null | undefined>(undefined);
-  const [client, setClient] = useState<AutochatClient | null>(null);
   const [triggers, setTriggers] = useState<AutochatTrigger[]>([]);
   const [audienceLogs, setAudienceLogs] = useState<AutochatAudienceLog[]>([]);
-  const [authLoading, setAuthLoading] = useState(true);
 
   // UI State
   const [activeTab, setActiveTab] = useState("dashboard");
@@ -148,9 +148,11 @@ const Dashboard = () => {
           if (data.followers_count !== undefined) {
             const count = data.followers_count;
             setIgFollowers(count >= 1000 ? (count / 1000).toFixed(1) + "K" : count.toString());
+          } else if (data.error) {
+            console.error("[AutoChat] Followers fetch API error:", data.error);
           }
         } catch (err) {
-          console.error("Error fetching IG followers:", err);
+          console.error("[AutoChat] Followers fetch network error:", err);
         }
       } else {
         setIgFollowers("0");
@@ -169,24 +171,11 @@ const Dashboard = () => {
     } else {
       document.documentElement.classList.add("dark");
     }
-    supabase.auth.getSession().then(async ({ data }) => {
-      const s = data.session;
-      setSession(s ?? null);
-      if (s) {
-        try {
-          const { data: cData } = await supabase
-            .from("autochat_clients")
-            .select("*")
-            .eq("user_id", s.user.id)
-            .single();
-          if (cData) setClient(cData);
 
-          fetchTriggers(s.user.id);
-          fetchAudienceLogs(s.user.id);
-        } catch {/* non-blocking */ }
-      }
-      setAuthLoading(false);
-    });
+    if (session?.user) {
+      fetchTriggers(session.user.id);
+      fetchAudienceLogs(session.user.id);
+    }
 
     // Load FB SDK
     if (!document.getElementById('facebook-jssdk')) {
@@ -220,12 +209,7 @@ const Dashboard = () => {
     } else {
       console.log("[AutoChat] Facebook SDK script tag already exists.");
     }
-
-    const { data: listener } = supabase.auth.onAuthStateChange((_e, s) => {
-      setSession(s ?? null);
-    });
-    return () => listener.subscription.unsubscribe();
-  }, []);
+  }, [session]);
 
   const connectToMeta = () => {
     console.log("[AutoChat] connectToMeta clicked. Checking window.FB:", !!window.FB);
@@ -267,9 +251,30 @@ const Dashboard = () => {
                 const pageWithIg = pbData.data.find((p: any) => p.instagram_business_account?.id);
                 if (pageWithIg) {
                   metaPageId = pageWithIg.id;
-                  metaInstagramId = pageWithIg.instagram_business_account.id;
                   pageAccessToken = pageWithIg.access_token; // Page Token = never expires!
-                  console.log(`[AutoChat] Found IG Account: ${metaInstagramId} on Page: ${metaPageId}`);
+
+                  // ⚡ VERIFY: Get the ABSOLUTE IG ID (Meta sometimes returns Scoped IDs in nested objects)
+                  try {
+                    console.log(`[AutoChat] Verifying IG Business Account ID for ${pageWithIg.instagram_business_account.id} via Page metadata...`);
+                    // Fetching from the Page ID endpoint directly usually gives the global ID.
+                    // Even if this ID doesn't match the webhook precisely, the webhook search will now be broader.
+                    const igVerifyRes = await fetch(`https://graph.facebook.com/v22.0/${metaPageId}?fields=instagram_business_account&access_token=${pageAccessToken}`);
+                    const igVerifyData = await igVerifyRes.json();
+
+                    const absoluteIgId = igVerifyData.instagram_business_account?.id;
+                    if (absoluteIgId) {
+                      metaInstagramId = absoluteIgId;
+                      console.log(`[AutoChat] Verified Absolute IG ID from Page metadata: ${metaInstagramId}`);
+                    } else {
+                      metaInstagramId = pageWithIg.instagram_business_account.id;
+                      console.log(`[AutoChat] Using fallback IG ID: ${metaInstagramId}`);
+                    }
+                  } catch (vErr) {
+                    console.error("[AutoChat] IG ID Verification failed, falling back to ID from me/accounts:", vErr);
+                    metaInstagramId = pageWithIg.instagram_business_account.id;
+                  }
+
+                  console.log(`[AutoChat] Connection target -> IG: ${metaInstagramId}, Page: ${metaPageId}`);
                   console.log(`[AutoChat] Got Page Access Token (never expires): ${pageAccessToken?.substring(0, 10)}...`);
                 } else {
                   console.warn("[AutoChat] No Instagram Business Account found on any connected Facebook Pages.");
@@ -307,25 +312,46 @@ const Dashboard = () => {
 
               // Use Page Token (never expires) instead of User Token (expires in 1 hour)
               const tokenToSave = pageAccessToken || userAccessToken;
+
+              // 1. Subscribe Page to Webhook Fields (MANDATORY for Meta to send events)
+              if (metaPageId && pageAccessToken) {
+                console.log(`[AutoChat] Subscribing Page ${metaPageId} to Webhook Fields...`);
+                try {
+                  // Only subscribe to what we actually use to reduce 400 errors
+                  // 'feed' is the correct field for page/instagram comment events
+                  const subFields = "messages,messaging_postbacks,feed";
+                  const subRes = await fetch(`https://graph.facebook.com/v22.0/${metaPageId}/subscribed_apps?subscribed_fields=${subFields}&access_token=${pageAccessToken}`, {
+                    method: 'POST'
+                  });
+                  const subData = await subRes.json();
+                  if (subData.success) {
+                    console.log("[AutoChat] Successfully subscribed Page to Webhook Fields.");
+                  } else {
+                    console.error("[AutoChat] Failed to subscribe Page. Full Error:", JSON.stringify(subData, null, 2));
+                    // If 400, it often means the app is missing permissions or identifying fields
+                  }
+                } catch (subErr) {
+                  console.error("[AutoChat] Error calling subscribed_apps:", subErr);
+                }
+              }
+
               console.log("[AutoChat] Saving Page Access Token to supabase...");
               const { error } = await supabase
                 .from("autochat_clients")
-                .update({
+                .upsert({
+                  user_id: session?.user.id,
+                  email: session?.user.email,
+                  display_name: session?.user.email?.split("@")[0] || "User",
                   meta_access_token: tokenToSave,
                   meta_page_id: metaPageId,
-                  meta_instagram_id: metaInstagramId
-                })
-                .eq("user_id", session?.user.id);
+                  meta_instagram_id: metaInstagramId,
+                  updated_at: new Date().toISOString()
+                }, { onConflict: 'user_id' });
 
               if (error) throw error;
 
               console.log("[AutoChat] Page Access Token saved successfully in DB (never expires!)");
-              setClient(prev => prev ? {
-                ...prev,
-                meta_access_token: tokenToSave,
-                meta_page_id: metaPageId,
-                meta_instagram_id: metaInstagramId
-              } : null);
+              await refreshClient();
 
               if (metaInstagramId) {
                 toast({ title: "Sukses tersambung ke Meta!", description: "Instagram & Facebook berhasil dihubungkan." });
@@ -429,8 +455,8 @@ const Dashboard = () => {
 
       if (clientError) throw clientError;
 
-      // Update Local State
-      setClient(prev => prev ? { ...prev, display_name: settingsName, phone_number: settingsPhone } : null);
+      // Update Local State via context refresh
+      await refreshClient();
 
       toast({ title: "Update Sukses", description: successMessage });
     } catch (err: any) {
@@ -448,7 +474,7 @@ const Dashboard = () => {
         .eq("user_id", session?.user.id);
       if (error) throw error;
 
-      setClient(prev => prev ? { ...prev, meta_access_token: null, meta_page_id: null, meta_instagram_id: null } : null);
+      await refreshClient();
       toast({ title: "Terputus dari Meta" });
     } catch (err: any) {
       toast({ title: "Gagal memutus Meta", description: err.message, variant: "destructive" });
@@ -493,7 +519,7 @@ const Dashboard = () => {
   };
 
   return (
-    <div className="flex h-screen flex-col overflow-hidden md:flex-row bg-background">
+    <div className="flex h-[100dvh] flex-col overflow-hidden md:flex-row bg-background">
       {/* Sidebar (Desktop Only) */}
       <aside className="hidden md:flex fixed left-0 top-0 z-40 h-full w-64 flex-col border-r border-border bg-card shadow-[4px_0_24px_-4px_rgba(0,0,0,0.05)] dark:shadow-none transition-colors duration-300">
         <div className="flex h-16 items-center gap-2 border-b border-border px-6">
@@ -522,6 +548,22 @@ const Dashboard = () => {
         </nav>
 
         <div className="border-t border-border p-3 space-y-2">
+          {!is_pro && isLoggedIn && (
+            <button
+              onClick={() => navigate("/payment")}
+              className="group relative flex w-full items-center gap-3 overflow-hidden rounded-xl bg-gradient-to-br from-yellow-400 to-orange-600 px-4 py-3 text-sm font-bold text-white shadow-lg transition-all hover:scale-[1.02] active:scale-95"
+            >
+              <div className="flex h-6 w-6 items-center justify-center rounded-lg bg-white/20">
+                <Crown className="h-4 w-4 text-white" />
+              </div>
+              <div className="flex flex-col items-start leading-tight">
+                <span>Upgrade to PRO</span>
+                <span className="text-[10px] font-medium text-white/80 uppercase tracking-wider">Buka Semua Fitur</span>
+              </div>
+              <div className="absolute -right-2 -top-2 h-12 w-12 rounded-full bg-white/10 blur-xl group-hover:bg-white/20" />
+            </button>
+          )}
+
           <button
             onClick={toggleTheme}
             className="flex w-full items-center justify-between rounded-lg px-3 py-2.5 text-sm font-medium text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground"
@@ -533,16 +575,26 @@ const Dashboard = () => {
           </button>
 
           {isLoggedIn ? (
-            <button
-              onClick={handleLogout}
-              className={`flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors ${theme === "light"
-                ? "bg-red-600 text-white hover:bg-red-700 shadow-md"
-                : "text-muted-foreground hover:bg-secondary hover:text-foreground"
-                }`}
-            >
-              <LogOut className="h-4 w-4" />
-              Keluar
-            </button>
+            <div className="flex flex-col gap-2">
+              {is_pro && (
+                <div className="flex items-center gap-2 px-3 py-1 bg-yellow-400/10 rounded-lg border border-yellow-400/20 mb-1">
+                  <div className="bg-yellow-400 rounded-full p-0.5">
+                    <Crown className="h-2 w-2 text-black" />
+                  </div>
+                  <span className="text-xs font-bold text-yellow-600 dark:text-yellow-400 uppercase tracking-tighter">PRO Account</span>
+                </div>
+              )}
+              <button
+                onClick={handleLogout}
+                className={`flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors ${theme === "light"
+                  ? "bg-red-600 text-white hover:bg-red-700 shadow-md"
+                  : "text-muted-foreground hover:bg-secondary hover:text-foreground"
+                  }`}
+              >
+                <LogOut className="h-4 w-4" />
+                Keluar
+              </button>
+            </div>
           ) : (
             <Button className="w-full gap-2" size="sm" onClick={() => navigate("/auth")}>
               <Lock className="h-4 w-4" />
@@ -572,13 +624,20 @@ const Dashboard = () => {
                 </>
               )}
             </div>
-            <div className="flex h-8 w-8 items-center justify-center rounded-full bg-secondary text-sm font-semibold text-foreground overflow-hidden">
-              {authLoading ? (
-                <Loader2 className="h-3 w-3 animate-spin" />
-              ) : igProfilePic ? (
-                <img src={igProfilePic} alt="Profile" className="h-full w-full object-cover" />
-              ) : (
-                initials.slice(0, 1)
+            <div className="relative group">
+              <div className="flex h-8 w-8 items-center justify-center rounded-full bg-secondary text-sm font-semibold text-foreground overflow-hidden ring-2 ring-border group-hover:ring-primary/50 transition-all cursor-pointer">
+                {authLoading ? (
+                  <Loader2 className="h-3 w-3 animate-spin" />
+                ) : igProfilePic ? (
+                  <img src={igProfilePic} alt="Profile" className="h-full w-full object-cover" />
+                ) : (
+                  initials.slice(0, 1)
+                )}
+              </div>
+              {is_pro && (
+                <div className="absolute -top-1 -right-1 bg-yellow-400 text-black p-0.5 rounded-full shadow-lg border-2 border-background">
+                  <Crown className="h-2 w-2" />
+                </div>
               )}
             </div>
           </div>
@@ -896,6 +955,28 @@ const Dashboard = () => {
                 </p>
               </div>
 
+              {!is_pro && isLoggedIn && (
+                <div className="mb-6 rounded-2xl overflow-hidden bg-gradient-to-br from-yellow-400 to-orange-600 p-px shadow-xl">
+                  <div className="bg-card/90 backdrop-blur-sm p-5 md:p-6 flex flex-col md:flex-row items-center justify-between gap-4">
+                    <div className="flex items-center gap-4">
+                      <div className="h-12 w-12 rounded-xl bg-yellow-400/20 flex items-center justify-center border border-yellow-400/30">
+                        <Crown className="h-6 w-6 text-yellow-500" />
+                      </div>
+                      <div>
+                        <h3 className="font-display font-bold text-foreground">Upgrade ke Autochat PRO</h3>
+                        <p className="text-xs text-muted-foreground">Aktifkan fitur unlimited dan prioritas webhook.</p>
+                      </div>
+                    </div>
+                    <Button
+                      onClick={() => navigate("/payment")}
+                      className="w-full md:w-auto bg-gradient-to-r from-yellow-400 to-orange-600 text-white font-bold h-11 px-8 rounded-xl shadow-lg hover:shadow-yellow-500/20 transition-all active:scale-95"
+                    >
+                      Mulai Sekarang
+                    </Button>
+                  </div>
+                </div>
+              )}
+
               <div className="rounded-xl border border-border bg-card p-6 shadow-sm max-w-2xl">
                 <form onSubmit={handleUpdateProfile} className="space-y-6">
 
@@ -1016,6 +1097,7 @@ const Dashboard = () => {
               {(isAddingTrigger || editingTrigger) && session?.user && (
                 <AutomationWizard
                   userId={session.user.id}
+                  userEmail={session.user.email || ""}
                   metaInstagramId={client?.meta_instagram_id}
                   metaAccessToken={client?.meta_access_token}
                   initialData={editingTrigger}
@@ -1113,7 +1195,7 @@ const Dashboard = () => {
           )}
 
           {/* ── Paid upgrade nudge (only for free logged-in users) ─────────────── */}
-          {isLoggedIn && !isPaid && (
+          {isLoggedIn && !is_pro && (
             <motion.div
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
@@ -1126,7 +1208,12 @@ const Dashboard = () => {
                   Upgrade ke <strong>Paid</strong> untuk unlock unlimited pages & automations.
                 </p>
               </div>
-              <Button size="sm" variant="outline" className="border-amber-500/30 text-amber-500 hover:bg-amber-500/10">
+              <Button
+                size="sm"
+                variant="outline"
+                className="border-amber-500/30 text-amber-500 hover:bg-amber-500/10 h-10 px-4 font-bold"
+                onClick={() => navigate("/payment")}
+              >
                 Upgrade
               </Button>
             </motion.div>
