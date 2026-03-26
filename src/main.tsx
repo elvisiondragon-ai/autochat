@@ -4,7 +4,7 @@ import "./index.css";
 
 // ==========================================
 // CACHE BUSTING VERSION - CHANGE THIS TO FORCE RELOAD!
-const APP_VERSION = '2026.03.07.20'; // Updated: Resized Payment header for mobile
+const APP_VERSION = '2026.03.26.17'; // Updated for Cache Loop Clear
 
 if (localStorage.getItem('v_cache') !== APP_VERSION) {
     // 1. Clear all Service Workers
