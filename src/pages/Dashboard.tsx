@@ -335,6 +335,15 @@ const Dashboard = () => {
                 }
               }
 
+              // Gunakan masa berlaku aktual yang diberikan SDK (dalam detik)
+              // Jika tidak ada (kasus edge case), gunakan 60 hari sebagai default konservatif.
+              // Jika token halaman (Page Token) tidak pernah expired, nilainya bisa sangat besar atau 0.
+              const expiresInMs = response.authResponse?.expiresIn 
+                ? parseInt(response.authResponse.expiresIn) * 1000
+                : 60 * 24 * 60 * 60 * 1000; 
+              
+              const expiresAt = new Date(Date.now() + expiresInMs).toISOString();
+
               console.log("[AutoChat] Saving Page Access Token to supabase...");
               const { error } = await supabase
                 .from("autochat_clients")
@@ -345,6 +354,8 @@ const Dashboard = () => {
                   meta_access_token: tokenToSave,
                   meta_page_id: metaPageId,
                   meta_instagram_id: metaInstagramId,
+                  ig_token_expires_at: expiresAt,
+                  ig_token_refreshed_at: new Date().toISOString(),
                   updated_at: new Date().toISOString()
                 }, { onConflict: 'user_id' });
 
