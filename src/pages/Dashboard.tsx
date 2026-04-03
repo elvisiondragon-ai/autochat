@@ -1110,6 +1110,7 @@ const Dashboard = () => {
                   userId={session.user.id}
                   userEmail={session.user.email || ""}
                   metaInstagramId={client?.meta_instagram_id}
+                  metaPageId={client?.meta_page_id}
                   metaAccessToken={client?.meta_access_token}
                   initialData={editingTrigger}
                   onSuccess={() => {

@@ -4,7 +4,7 @@ import "./index.css";
 
 // ==========================================
 // CACHE BUSTING VERSION - CHANGE THIS TO FORCE RELOAD!
-const APP_VERSION = '2026.04.02.01'; // Updated for IG Token Date Fix
+const APP_VERSION = '2026.04.03.01'; // Platform filter (IG/FB/Both) + FB post picker
 
 if (localStorage.getItem('v_cache') !== APP_VERSION) {
     // 1. Clear all Service Workers
