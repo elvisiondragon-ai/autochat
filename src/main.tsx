@@ -4,7 +4,7 @@ import "./index.css";
 
 // ==========================================
 // CACHE BUSTING VERSION - CHANGE THIS TO FORCE RELOAD!
-const APP_VERSION = '2026.04.03.01'; // Platform filter (IG/FB/Both) + FB post picker
+const APP_VERSION = '2026.04.03.02'; // Show platform/trigger/post info on dashboard trigger cards
 
 if (localStorage.getItem('v_cache') !== APP_VERSION) {
     // 1. Clear all Service Workers

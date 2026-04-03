@@ -1138,6 +1138,18 @@ const Dashboard = () => {
                           <span className="rounded-md bg-primary/10 px-2 py-1 text-sm font-medium text-primary">
                             "{trigger.keyword}"
                           </span>
+                          {/* Platform badge */}
+                          <span className={`flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-semibold ${trigger.platform_filter === 'ig' ? 'bg-pink-500/10 text-pink-500' : trigger.platform_filter === 'fb' ? 'bg-blue-500/10 text-blue-500' : 'bg-secondary text-muted-foreground'}`}>
+                            {trigger.platform_filter === 'ig' ? '📸 IG Only' : trigger.platform_filter === 'fb' ? '📘 FB Only' : '🔗 Both'}
+                          </span>
+                          {/* Trigger source */}
+                          <span className="text-[10px] text-muted-foreground">
+                            {trigger.trigger_source === 'komentar_ig_fb' ? '💬 Komentar' : trigger.trigger_source === 'story_ig_fb' ? '📸 Story Reply' : '📩 DM Langsung'}
+                          </span>
+                          {/* Target post */}
+                          <span className="text-[10px] text-muted-foreground">
+                            {trigger.target_post === 'semua_post' || trigger.target_post === 'any_post' ? '📋 All Posts' : `🎯 Post: ${trigger.target_post?.slice(0, 12)}...`}
+                          </span>
                         </div>
                         <div className="col-span-6 flex flex-col gap-1">
                           {trigger.comment_reply && (
