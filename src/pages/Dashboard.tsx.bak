@@ -335,11 +335,14 @@ const Dashboard = () => {
                 }
               }
 
-              // Page Token (dari /me/accounts) tidak pernah expire — set ke tahun 2099
-              // Hanya fallback ke expiresIn jika tidak ada Page Token yang berhasil diambil
-              const expiresAt = pageAccessToken
-                ? new Date('2099-01-01T00:00:00.000Z').toISOString()
-                : new Date(Date.now() + (parseInt(String(response.authResponse?.expiresIn || '5184000')) * 1000)).toISOString();
+              // Gunakan masa berlaku aktual yang diberikan SDK (dalam detik)
+              // Jika tidak ada (kasus edge case), gunakan 60 hari sebagai default konservatif.
+              // Jika token halaman (Page Token) tidak pernah expired, nilainya bisa sangat besar atau 0.
+              const expiresInMs = response.authResponse?.expiresIn 
+                ? parseInt(response.authResponse.expiresIn) * 1000
+                : 60 * 24 * 60 * 60 * 1000; 
+              
+              const expiresAt = new Date(Date.now() + expiresInMs).toISOString();
 
               console.log("[AutoChat] Saving Page Access Token to supabase...");
               const { error } = await supabase
