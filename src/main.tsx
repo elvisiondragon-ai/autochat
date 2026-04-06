@@ -4,7 +4,7 @@ import "./index.css";
 
 // ==========================================
 // CACHE BUSTING VERSION - CHANGE THIS TO FORCE RELOAD!
-const APP_VERSION = '2026.04.03.02'; // Show platform/trigger/post info on dashboard trigger cards
+const APP_VERSION = '2026.04.06.01'; // Add 3rd button support for sequence steps
 
 if (localStorage.getItem('v_cache') !== APP_VERSION) {
     // 1. Clear all Service Workers

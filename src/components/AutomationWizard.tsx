@@ -293,11 +293,13 @@ export const AutomationWizard: React.FC<AutomationWizardProps> = ({ userId, user
     const [step6UrlTitle, setStep6UrlTitle] = useState<string>("");
     const [step6UrlLink, setStep6UrlLink] = useState<string>("");
 
-    // --- Branching / Routing State (4 New Fields) ---
+    // --- Branching / Routing State ---
     const [step4Button1LeadsTo, setStep4Button1LeadsTo] = useState<"step5" | "step6">("step5");
     const [step4Button2LeadsTo, setStep4Button2LeadsTo] = useState<"step5" | "step6">("step6");
+    const [step4Button3LeadsTo, setStep4Button3LeadsTo] = useState<"step5" | "step6">("step6");
     const [step5Button1LeadsTo, setStep5Button1LeadsTo] = useState<"step6" | "repeat_step5">("step6");
     const [step5Button2LeadsTo, setStep5Button2LeadsTo] = useState<"step6" | "repeat_step5">("repeat_step5");
+    const [step5Button3LeadsTo, setStep5Button3LeadsTo] = useState<"step6" | "repeat_step5">("step6");
 
     // Platform Filter State
     const [platformFilter, setPlatformFilter] = useState<"ig" | "fb" | "both">("both");
@@ -335,15 +337,17 @@ export const AutomationWizard: React.FC<AutomationWizardProps> = ({ userId, user
             setStep4BtnType(initialData.step4_button_type || "quick_reply");
             setStep4Buttons([
                 { title: initialData.step4_button1_text || "", url: initialData.step4_button1_url || "" },
-                { title: initialData.step4_button2_text || "", url: initialData.step4_button2_url || "" }
-            ]);
+                { title: initialData.step4_button2_text || "", url: initialData.step4_button2_url || "" },
+                { title: initialData.step4_button3_text || "", url: initialData.step4_button3_url || "" },
+            ].filter((b, i) => i === 0 || b.title));
 
             setStep5Text(initialData.step5_text || "");
             setStep5BtnType(initialData.step5_button_type || "quick_reply");
             setStep5Buttons([
                 { title: initialData.step5_button1_text || "", url: initialData.step5_button1_url || "" },
-                { title: initialData.step5_button2_text || "", url: initialData.step5_button2_url || "" }
-            ]);
+                { title: initialData.step5_button2_text || "", url: initialData.step5_button2_url || "" },
+                { title: initialData.step5_button3_text || "", url: initialData.step5_button3_url || "" },
+            ].filter((b, i) => i === 0 || b.title));
 
             setStep6Text(initialData.step6_text || "");
             setStep6UrlTitle(initialData.step6_button_text || "");
@@ -351,8 +355,10 @@ export const AutomationWizard: React.FC<AutomationWizardProps> = ({ userId, user
 
             setStep4Button1LeadsTo(initialData.step4_button1_leads_to === "step6_follower_only" ? "step6" : (initialData.step4_button1_leads_to || "step5"));
             setStep4Button2LeadsTo(initialData.step4_button2_leads_to === "step6_follower_only" ? "step6" : (initialData.step4_button2_leads_to || "step6"));
+            setStep4Button3LeadsTo(initialData.step4_button3_leads_to === "step6_follower_only" ? "step6" : (initialData.step4_button3_leads_to || "step6"));
             setStep5Button1LeadsTo(initialData.step5_button1_leads_to === "step6_follower_only" ? "step6" : (initialData.step5_button1_leads_to || "step6"));
             setStep5Button2LeadsTo(initialData.step5_button2_leads_to === "step6_follower_only" ? "step6" : (initialData.step5_button2_leads_to || "repeat_step5"));
+            setStep5Button3LeadsTo(initialData.step5_button3_leads_to === "step6_follower_only" ? "step6" : (initialData.step5_button3_leads_to || "step6"));
 
             // Infer flowType
             if (initialData.step5_text || initialData.step6_text) {
@@ -531,6 +537,8 @@ export const AutomationWizard: React.FC<AutomationWizardProps> = ({ userId, user
                 step4_button1_url: (flowType === "direct" || step4BtnType === "web_url") ? getBtnAttr(step4Buttons, 0, 'url') : null,
                 step4_button2_text: getBtnAttr(step4Buttons, 1, 'title'),
                 step4_button2_url: (flowType === "direct" || step4BtnType === "web_url") ? getBtnAttr(step4Buttons, 1, 'url') : null,
+                step4_button3_text: getBtnAttr(step4Buttons, 2, 'title'),
+                step4_button3_url: (flowType === "direct" || step4BtnType === "web_url") ? getBtnAttr(step4Buttons, 2, 'url') : null,
 
                 step5_text: flowType === "sequence" ? step5Text : null,
                 step5_button_type: flowType === "sequence" ? step5BtnType : null,
@@ -538,6 +546,8 @@ export const AutomationWizard: React.FC<AutomationWizardProps> = ({ userId, user
                 step5_button1_url: (flowType === "sequence" && step5BtnType === "web_url") ? getBtnAttr(step5Buttons, 0, 'url') : null,
                 step5_button2_text: flowType === "sequence" ? getBtnAttr(step5Buttons, 1, 'title') : null,
                 step5_button2_url: (flowType === "sequence" && step5BtnType === "web_url") ? getBtnAttr(step5Buttons, 1, 'url') : null,
+                step5_button3_text: flowType === "sequence" ? getBtnAttr(step5Buttons, 2, 'title') : null,
+                step5_button3_url: (flowType === "sequence" && step5BtnType === "web_url") ? getBtnAttr(step5Buttons, 2, 'url') : null,
 
                 step6_text: flowType === "sequence" ? step6Text : null,
                 step6_button_text: flowType === "sequence" ? (step6UrlTitle.trim() || null) : null,
@@ -545,8 +555,10 @@ export const AutomationWizard: React.FC<AutomationWizardProps> = ({ userId, user
 
                 step4_button1_leads_to: isFollowerOnly && step4Button1LeadsTo === "step6" ? "step6_follower_only" : step4Button1LeadsTo,
                 step4_button2_leads_to: isFollowerOnly && step4Button2LeadsTo === "step6" ? "step6_follower_only" : step4Button2LeadsTo,
+                step4_button3_leads_to: isFollowerOnly && step4Button3LeadsTo === "step6" ? "step6_follower_only" : step4Button3LeadsTo,
                 step5_button1_leads_to: isFollowerOnly && step5Button1LeadsTo === "step6" ? "step6_follower_only" : step5Button1LeadsTo,
                 step5_button2_leads_to: isFollowerOnly && step5Button2LeadsTo === "step6" ? "step6_follower_only" : step5Button2LeadsTo,
+                step5_button3_leads_to: isFollowerOnly && step5Button3LeadsTo === "step6" ? "step6_follower_only" : step5Button3LeadsTo,
 
                 is_active: initialData?.is_active ?? true,
             };
@@ -1089,10 +1101,10 @@ export const AutomationWizard: React.FC<AutomationWizardProps> = ({ userId, user
 
                                                     {/* NEW BRANCHING UI FOR STEP 4 */}
                                                     <div className="flex gap-2 mt-1">
-                                                        <span className="text-xs text-muted-foreground self-center">Tombol {i === 0 ? 'A' : 'B'} lanjut ke &rarr;</span>
+                                                        <span className="text-xs text-muted-foreground self-center">Tombol {i === 0 ? 'A' : i === 1 ? 'B' : 'C'} lanjut ke &rarr;</span>
                                                         {(["step5", "step6"] as const).filter(opt => !isFollowerOnly || opt !== "step6").map(opt => {
-                                                            const currentLead = i === 0 ? step4Button1LeadsTo : step4Button2LeadsTo;
-                                                            const setter = i === 0 ? setStep4Button1LeadsTo : setStep4Button2LeadsTo;
+                                                            const currentLead = i === 0 ? step4Button1LeadsTo : i === 1 ? step4Button2LeadsTo : step4Button3LeadsTo;
+                                                            const setter = i === 0 ? setStep4Button1LeadsTo : i === 1 ? setStep4Button2LeadsTo : setStep4Button3LeadsTo;
                                                             return (
                                                                 <button key={opt} type="button"
                                                                     onClick={() => setter(opt)}
@@ -1104,7 +1116,7 @@ export const AutomationWizard: React.FC<AutomationWizardProps> = ({ userId, user
                                                     </div>
                                                 </div>
                                             ))}
-                                            {step4Buttons.length < 2 && (
+                                            {step4Buttons.length < 3 && (
                                                 <button onClick={() => setStep4Buttons([...step4Buttons, { title: "", url: "" }])} className="text-primary text-xs font-semibold">+ Tambah Tombol</button>
                                             )}
                                         </>
@@ -1184,10 +1196,10 @@ export const AutomationWizard: React.FC<AutomationWizardProps> = ({ userId, user
 
                                             {/* NEW BRANCHING UI FOR STEP 5 */}
                                             <div className="flex gap-2 mt-1">
-                                                <span className="text-xs text-muted-foreground self-center">Tombol {i === 0 ? 'A' : 'B'} lanjut ke &rarr;</span>
+                                                <span className="text-xs text-muted-foreground self-center">Tombol {i === 0 ? 'A' : i === 1 ? 'B' : 'C'} lanjut ke &rarr;</span>
                                                 {(["step6", "repeat_step5"] as const).map(opt => {
-                                                    const currentLead = i === 0 ? step5Button1LeadsTo : step5Button2LeadsTo;
-                                                    const setter = i === 0 ? setStep5Button1LeadsTo : setStep5Button2LeadsTo;
+                                                    const currentLead = i === 0 ? step5Button1LeadsTo : i === 1 ? step5Button2LeadsTo : step5Button3LeadsTo;
+                                                    const setter = i === 0 ? setStep5Button1LeadsTo : i === 1 ? setStep5Button2LeadsTo : setStep5Button3LeadsTo;
                                                     return (
                                                         <button key={opt} type="button"
                                                             onClick={() => setter(opt)}
@@ -1199,7 +1211,7 @@ export const AutomationWizard: React.FC<AutomationWizardProps> = ({ userId, user
                                             </div>
                                         </div>
                                     ))}
-                                    {step5Buttons.length < 2 && (
+                                    {step5Buttons.length < 3 && (
                                         <button onClick={() => setStep5Buttons([...step5Buttons, { title: "", url: "" }])} className="text-primary text-xs font-semibold">+ Tambah Tombol</button>
                                     )}
                                 </div>
