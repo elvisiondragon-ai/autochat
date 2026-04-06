@@ -498,10 +498,7 @@ export const AutomationWizard: React.FC<AutomationWizardProps> = ({ userId, user
             return toast({ description: "Pesan DM (Langkah 5) tidak boleh kosong", variant: "destructive" });
         }
 
-        if (flowType === "sequence") {
-            if (!step5Text.trim()) return toast({ description: "Pesan Follow-up (Langkah 6) tidak boleh kosong", variant: "destructive" });
-            if (!step6Text.trim()) return toast({ description: "Pesan Ending (Langkah 7) tidak boleh kosong", variant: "destructive" });
-        }
+        // sequence: only validate steps that have been filled in (flexible save)
 
         setIsSaving(true);
         try {
@@ -532,8 +529,8 @@ export const AutomationWizard: React.FC<AutomationWizardProps> = ({ userId, user
                 step4_button_type: flowType === "direct" ? "web_url" : step4BtnType,
                 step4_button1_text: getBtnAttr(step4Buttons, 0, 'title'),
                 step4_button1_url: (flowType === "direct" || step4BtnType === "web_url") ? getBtnAttr(step4Buttons, 0, 'url') : null,
-                step4_button2_text: flowType === "direct" ? null : getBtnAttr(step4Buttons, 1, 'title'),
-                step4_button2_url: (flowType === "sequence" && step4BtnType === "web_url") ? getBtnAttr(step4Buttons, 1, 'url') : null,
+                step4_button2_text: getBtnAttr(step4Buttons, 1, 'title'),
+                step4_button2_url: (flowType === "direct" || step4BtnType === "web_url") ? getBtnAttr(step4Buttons, 1, 'url') : null,
 
                 step5_text: flowType === "sequence" ? step5Text : null,
                 step5_button_type: flowType === "sequence" ? step5BtnType : null,
@@ -595,6 +592,9 @@ export const AutomationWizard: React.FC<AutomationWizardProps> = ({ userId, user
         : ["Trigger", "Post", "Keyword", "Alur", "Opening", "Followup", "Ending"];
 
     const totalStepsNum = flowType === "direct" ? 5 : 7;
+
+    // Save is available from step 5 onwards (not just at the final step)
+    const canSave = step >= 5;
 
     return (
         <div className="mb-8 rounded-2xl border border-border bg-card shadow-sm overflow-hidden">
@@ -1015,37 +1015,54 @@ export const AutomationWizard: React.FC<AutomationWizardProps> = ({ userId, user
                                     </h5>
 
                                     {flowType === "sequence" && (
-                                        <div className="flex items-center gap-4 mt-2">
-                                            <label className="flex items-center gap-2 cursor-pointer">
-                                                <input type="radio" className="h-4 w-4 text-primary" checked={step4BtnType === "quick_reply"} onChange={() => setStep4BtnType("quick_reply")} />
-                                                <span className="text-sm font-medium">Quick Replies</span>
-                                            </label>
-                                            <label className="flex items-center gap-2 cursor-pointer">
-                                                <input type="radio" className="h-4 w-4 text-primary" checked={step4BtnType === "web_url"} onChange={() => setStep4BtnType("web_url")} />
-                                                <span className="text-sm font-medium">Website URL</span>
-                                            </label>
+                                        <div className="space-y-2 mt-2">
+                                            <div className="flex items-center gap-4">
+                                                <label className="flex items-center gap-2 cursor-pointer">
+                                                    <input type="radio" className="h-4 w-4 text-primary" checked={step4BtnType === "quick_reply"} onChange={() => setStep4BtnType("quick_reply")} />
+                                                    <span className="text-sm font-medium">Quick Replies</span>
+                                                </label>
+                                                <label className="flex items-center gap-2 cursor-pointer">
+                                                    <input type="radio" className="h-4 w-4 text-primary" checked={step4BtnType === "web_url"} onChange={() => setStep4BtnType("web_url")} />
+                                                    <span className="text-sm font-medium">Website URL</span>
+                                                </label>
+                                            </div>
+                                            {step4BtnType === "quick_reply" && (
+                                                <p className="text-[11px] text-primary/70 bg-primary/5 border border-primary/20 rounded-lg px-3 py-2">
+                                                    Saat user klik Quick Reply → bot otomatis lanjut ke step berikutnya. Teks tombol maks 20 karakter.
+                                                </p>
+                                            )}
                                         </div>
                                     )}
 
                                     <div className="h-px bg-border my-2" />
 
                                     {flowType === "direct" ? (
-                                        <div className="flex gap-2 items-center mb-2">
-                                            <input
-                                                type="text"
-                                                placeholder="Judul Tombol"
-                                                value={step4Buttons[0].title}
-                                                onChange={e => { const newB = [...step4Buttons]; newB[0].title = e.target.value; setStep4Buttons(newB); }}
-                                                className="flex-1 rounded-xl border border-input px-3 py-2 text-sm focus:ring-primary"
-                                            />
-                                            <input
-                                                type="url"
-                                                placeholder="https://..."
-                                                value={step4Buttons[0].url}
-                                                onChange={e => { const newB = [...step4Buttons]; newB[0].url = e.target.value; setStep4Buttons(newB); }}
-                                                className="flex-1 rounded-xl border border-input px-3 py-2 text-sm focus:ring-primary"
-                                            />
-                                        </div>
+                                        <>
+                                            {step4Buttons.map((btn, i) => (
+                                                <div key={i} className="flex gap-2 items-center mb-2">
+                                                    <input
+                                                        type="text"
+                                                        placeholder="Judul Tombol"
+                                                        value={btn.title}
+                                                        onChange={e => { const newB = [...step4Buttons]; newB[i].title = e.target.value; setStep4Buttons(newB); }}
+                                                        className="flex-1 rounded-xl border border-input px-3 py-2 text-sm focus:ring-primary"
+                                                    />
+                                                    <input
+                                                        type="url"
+                                                        placeholder="https://..."
+                                                        value={btn.url}
+                                                        onChange={e => { const newB = [...step4Buttons]; newB[i].url = e.target.value; setStep4Buttons(newB); }}
+                                                        className="flex-1 rounded-xl border border-input px-3 py-2 text-sm focus:ring-primary"
+                                                    />
+                                                    {step4Buttons.length > 1 && (
+                                                        <button onClick={() => setStep4Buttons(step4Buttons.filter((_, j) => j !== i))} className="text-destructive text-xs hover:opacity-70 p-2">✕</button>
+                                                    )}
+                                                </div>
+                                            ))}
+                                            {step4Buttons.length < 3 && (
+                                                <button onClick={() => setStep4Buttons([...step4Buttons, { title: "", url: "" }])} className="text-primary text-xs font-semibold">+ Tambah Tombol URL</button>
+                                            )}
+                                        </>
                                     ) : (
                                         <>
                                             {step4Buttons.map((btn, i) => (
@@ -1124,15 +1141,22 @@ export const AutomationWizard: React.FC<AutomationWizardProps> = ({ userId, user
 
                                 <div className="rounded-xl border border-border bg-secondary/10 p-4 space-y-4 mt-4">
                                     <h5 className="text-sm font-semibold text-foreground mb-1">Tipe Tombol (Maksimal 2)</h5>
-                                    <div className="flex items-center gap-4 mt-2">
-                                        <label className="flex items-center gap-2 cursor-pointer">
-                                            <input type="radio" className="h-4 w-4 text-primary" checked={step5BtnType === "quick_reply"} onChange={() => setStep5BtnType("quick_reply")} />
-                                            <span className="text-sm font-medium">Quick Replies</span>
-                                        </label>
-                                        <label className="flex items-center gap-2 cursor-pointer">
-                                            <input type="radio" className="h-4 w-4 text-primary" checked={step5BtnType === "web_url"} onChange={() => setStep5BtnType("web_url")} />
-                                            <span className="text-sm font-medium">Website URL</span>
-                                        </label>
+                                    <div className="space-y-2 mt-2">
+                                        <div className="flex items-center gap-4">
+                                            <label className="flex items-center gap-2 cursor-pointer">
+                                                <input type="radio" className="h-4 w-4 text-primary" checked={step5BtnType === "quick_reply"} onChange={() => setStep5BtnType("quick_reply")} />
+                                                <span className="text-sm font-medium">Quick Replies</span>
+                                            </label>
+                                            <label className="flex items-center gap-2 cursor-pointer">
+                                                <input type="radio" className="h-4 w-4 text-primary" checked={step5BtnType === "web_url"} onChange={() => setStep5BtnType("web_url")} />
+                                                <span className="text-sm font-medium">Website URL</span>
+                                            </label>
+                                        </div>
+                                        {step5BtnType === "quick_reply" && (
+                                            <p className="text-[11px] text-primary/70 bg-primary/5 border border-primary/20 rounded-lg px-3 py-2">
+                                                Saat user klik Quick Reply → bot otomatis lanjut ke step berikutnya. Teks tombol maks 20 karakter.
+                                            </p>
+                                        )}
                                     </div>
                                     <div className="h-px bg-border my-2" />
 
@@ -1257,15 +1281,18 @@ export const AutomationWizard: React.FC<AutomationWizardProps> = ({ userId, user
                     {step === 1 ? "Batal" : <><ArrowLeft className="h-4 w-4 mr-2" /> Kembali</>}
                 </Button>
 
-                {(step < totalStepsNum && !(step === 5 && flowType === "direct")) ? (
-                    <Button onClick={handleNext} className="min-w-[120px] shadow-lg shadow-primary/20">
-                        Lanjut <ArrowRight className="h-4 w-4 ml-2" />
-                    </Button>
-                ) : (
-                    <Button onClick={handleSave} disabled={isSaving} className="min-w-[140px] shadow-lg shadow-primary/20 bg-primary hover:bg-primary/90 text-white">
-                        {isSaving ? <Loader2 className="h-4 w-4 animate-spin" /> : "✅ Simpan Trigger"}
-                    </Button>
-                )}
+                <div className="flex items-center gap-2">
+                    {canSave && (
+                        <Button onClick={handleSave} disabled={isSaving} variant="outline" className="min-w-[140px] border-primary text-primary hover:bg-primary hover:text-white">
+                            {isSaving ? <Loader2 className="h-4 w-4 animate-spin" /> : "✅ Simpan"}
+                        </Button>
+                    )}
+                    {(step < totalStepsNum && !(step === 5 && flowType === "direct")) && (
+                        <Button onClick={handleNext} className="min-w-[120px] shadow-lg shadow-primary/20">
+                            Lanjut <ArrowRight className="h-4 w-4 ml-2" />
+                        </Button>
+                    )}
+                </div>
             </div>
         </div >
     );
