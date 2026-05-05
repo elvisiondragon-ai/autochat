@@ -265,7 +265,8 @@ export const AutomationWizard: React.FC<AutomationWizardProps> = ({ userId, user
 
     // Form State
     const [targetPost, setTargetPost] = useState<string>("");
-    const [selectedPost, setSelectedPost] = useState<IgMedia | null>(null);
+    const [selectedIgPost, setSelectedIgPost] = useState<IgMedia | null>(null);
+    const [selectedFbPost, setSelectedFbPost] = useState<IgMedia | null>(null);
     const [showPostPicker, setShowPostPicker] = useState(false);
     const [triggerSource, setTriggerSource] = useState<string>("");
     // Keyword State
@@ -318,11 +319,17 @@ export const AutomationWizard: React.FC<AutomationWizardProps> = ({ userId, user
         if (initialData) {
             setTriggerSource(initialData.trigger_source || "komentar_ig_fb");
             setPlatformFilter(initialData.platform_filter || "both");
-            if (initialData.target_post && initialData.target_post !== "any_post") {
-                setTargetPost("specific");
-                setSelectedPost({ id: initialData.target_post, media_url: "" } as any);
+            if (initialData.target_post && initialData.target_post !== "any_post" && initialData.target_post !== "semua_post") {
+                setTargetPost("post_tertentu");
+                const ids = initialData.target_post.split(",");
+                if (ids.length > 0) {
+                    // We don't have the full media objects yet, so we'll just store the IDs
+                    // They will be populated/matched once fetchIgPosts/fetchFbPosts are called
+                    setSelectedIgPost({ id: ids[0], media_url: "" } as any);
+                    if (ids[1]) setSelectedFbPost({ id: ids[1], media_url: "" } as any);
+                }
             } else {
-                setTargetPost("all");
+                setTargetPost("semua_post");
             }
             setIsAnyWord(initialData.is_any_word || false);
             setKeyword(initialData.keyword === "*" ? "" : (initialData.keyword || ""));
@@ -410,7 +417,14 @@ export const AutomationWizard: React.FC<AutomationWizardProps> = ({ userId, user
             }
 
             if (data.error) throw new Error(data.error.message);
-            setIgPosts(data.data || []);
+            const posts = data.data || [];
+            setIgPosts(posts);
+            
+            // If we are editing and have a selected ID but no media_url, populate it
+            if (selectedIgPost && !selectedIgPost.media_url) {
+                const found = posts.find((p: any) => p.id === selectedIgPost.id);
+                if (found) setSelectedIgPost(found);
+            }
         } catch (err: any) {
             toast({ title: "Gagal memuat postingan", description: err.message, variant: "destructive" });
         } finally {
@@ -437,6 +451,12 @@ export const AutomationWizard: React.FC<AutomationWizardProps> = ({ userId, user
                 permalink: p.permalink_url || "",
             }));
             setFbPosts(mapped);
+
+            // If we are editing and have a selected ID but no media_url, populate it
+            if (selectedFbPost && !selectedFbPost.media_url) {
+                const found = mapped.find((p: any) => p.id === selectedFbPost.id);
+                if (found) setSelectedFbPost(found);
+            }
         } catch (err: any) {
             toast({ title: "Gagal memuat postingan FB", description: err.message, variant: "destructive" });
         } finally {
@@ -459,7 +479,13 @@ export const AutomationWizard: React.FC<AutomationWizardProps> = ({ userId, user
         }
         if (step === 2) {
             if (!targetPost) return toast({ description: "Pilih Post terlebih dahulu", variant: "destructive" });
-            if (targetPost === "post_tertentu" && !selectedPost) return toast({ description: "Pilih salah satu postingan", variant: "destructive" });
+            if (targetPost === "post_tertentu") {
+                const hasIg = (platformFilter === "ig" || platformFilter === "both") && selectedIgPost;
+                const hasFb = (platformFilter === "fb" || platformFilter === "both") && selectedFbPost;
+                if (!hasIg && !hasFb) {
+                    return toast({ description: "Pilih setidaknya satu postingan", variant: "destructive" });
+                }
+            }
         }
         if (step === 3) {
             if (!isAnyWord && !keyword.trim()) return toast({ description: "Keyword tidak boleh kosong", variant: "destructive" });
@@ -519,10 +545,21 @@ export const AutomationWizard: React.FC<AutomationWizardProps> = ({ userId, user
                 return item && item[key] && item[key].trim() ? item[key].trim() : null;
             };
 
+            const getTargetPostValue = () => {
+                if (triggerSource !== "komentar_ig_fb") return "any_post";
+                if (targetPost === "semua_post") return "semua_post";
+                
+                const ids = [];
+                if (selectedIgPost) ids.push(selectedIgPost.id);
+                if (selectedFbPost) ids.push(selectedFbPost.id);
+                
+                return ids.length > 0 ? ids.join(",") : "any_post";
+            };
+
             const payload = {
                 user_id: userId,
                 email: userEmail,
-                target_post: selectedPost ? selectedPost.id : (triggerSource === "komentar_ig_fb" ? targetPost : "any_post"),
+                target_post: getTargetPostValue(),
                 trigger_source: triggerSource,
                 platform_filter: platformFilter,
                 keyword: isAnyWord ? "*" : keyword,
@@ -691,7 +728,12 @@ export const AutomationWizard: React.FC<AutomationWizardProps> = ({ userId, user
                                         label="📋 Semua Postingan (any post or reel)"
                                         value="semua_post"
                                         current={targetPost}
-                                        onChange={(v) => { setTargetPost(v); setSelectedPost(null); setShowPostPicker(false); }}
+                                        onChange={(v) => { 
+                                            setTargetPost(v); 
+                                            setSelectedIgPost(null); 
+                                            setSelectedFbPost(null); 
+                                            setShowPostPicker(false); 
+                                        }}
                                     />
                                     <div
                                         onClick={() => {
@@ -718,6 +760,12 @@ export const AutomationWizard: React.FC<AutomationWizardProps> = ({ userId, user
                                             <span className={`font-medium text-sm ${targetPost === "post_tertentu" ? "text-primary" : "text-foreground"}`}>
                                                 🎯 Pilih Post Tertentu {platformFilter === "ig" ? "(IG)" : platformFilter === "fb" ? "(FB)" : "(IG & FB)"}
                                             </span>
+                                            {targetPost === "post_tertentu" && (
+                                                <div className="ml-auto flex gap-1">
+                                                    {selectedIgPost && <span className="bg-primary/20 text-primary text-[10px] px-1.5 py-0.5 rounded">IG ✅</span>}
+                                                    {selectedFbPost && <span className="bg-primary/20 text-primary text-[10px] px-1.5 py-0.5 rounded">FB ✅</span>}
+                                                </div>
+                                            )}
                                         </div>
 
                                         {/* Post Picker Grid */}
@@ -753,9 +801,9 @@ export const AutomationWizard: React.FC<AutomationWizardProps> = ({ userId, user
                                                             <div className="grid grid-cols-3 sm:grid-cols-5 gap-2">
                                                                 {igPosts.map(post => {
                                                                     const thumb = post.thumbnail_url || post.media_url;
-                                                                    const isSelected = selectedPost?.id === post.id;
+                                                                    const isSelected = selectedIgPost?.id === post.id;
                                                                     return (
-                                                                        <div key={post.id} onClick={() => setSelectedPost(post)}
+                                                                        <div key={post.id} onClick={() => setSelectedIgPost(selectedIgPost?.id === post.id ? null : post)}
                                                                             className={`relative aspect-square rounded-lg overflow-hidden cursor-pointer border-2 transition-all ${isSelected ? "border-primary scale-105 shadow-lg shadow-primary/20" : "border-transparent hover:border-primary/50"}`}>
                                                                             {thumb ? (
                                                                                 <img src={thumb} alt={post.caption || "post"} className="w-full h-full object-cover" />
@@ -807,9 +855,9 @@ export const AutomationWizard: React.FC<AutomationWizardProps> = ({ userId, user
                                                             <div className="grid grid-cols-3 sm:grid-cols-5 gap-2">
                                                                 {fbPosts.map(post => {
                                                                     const thumb = post.thumbnail_url || post.media_url;
-                                                                    const isSelected = selectedPost?.id === post.id;
+                                                                    const isSelected = selectedFbPost?.id === post.id;
                                                                     return (
-                                                                        <div key={post.id} onClick={() => setSelectedPost(post)}
+                                                                        <div key={post.id} onClick={() => setSelectedFbPost(selectedFbPost?.id === post.id ? null : post)}
                                                                             className={`relative aspect-square rounded-lg overflow-hidden cursor-pointer border-2 transition-all ${isSelected ? "border-primary scale-105 shadow-lg shadow-primary/20" : "border-transparent hover:border-primary/50"}`}>
                                                                             {thumb ? (
                                                                                 <img src={thumb} alt={post.caption || "post"} className="w-full h-full object-cover" />
@@ -830,10 +878,10 @@ export const AutomationWizard: React.FC<AutomationWizardProps> = ({ userId, user
                                                     </div>
                                                 )}
 
-                                                {selectedPost && (
+                                                {(selectedIgPost || selectedFbPost) && (
                                                     <div className="text-xs text-primary font-medium flex items-center gap-1">
                                                         <CheckCircle2 className="h-3 w-3" />
-                                                        Post dipilih: {selectedPost.caption?.slice(0, 30) || selectedPost.id}...
+                                                        Post dipilih: {(selectedIgPost?.caption || selectedFbPost?.caption || "Specific Post").slice(0, 30)}...
                                                     </div>
                                                 )}
                                             </div>
@@ -1241,7 +1289,7 @@ export const AutomationWizard: React.FC<AutomationWizardProps> = ({ userId, user
                             commentReplies={commentReplies}
                             enableCommentReply={enableCommentReply}
                             triggerSource={triggerSource}
-                            selectedPost={selectedPost}
+                            selectedPost={selectedIgPost || selectedFbPost}
 
                             step4Text={step4Text}
                             step4BtnType={step4BtnType}
